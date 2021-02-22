@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "deep-equal": "^1.0.1",
+    "dotenv": "^8.2.0",
     "express": "^4.16.4",
     "mediasoup": "^3.6.24",
     "mediasoup-client": "^3.6.21"

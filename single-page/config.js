@@ -1,3 +1,7 @@
+require('dotenv').config()
+const os = require('os')
+
+
 module.exports = {
   // http server ip, port, and peer timeout constant
   //
@@ -7,8 +11,8 @@ module.exports = {
 
   // ssl certs. we'll start as http instead of https if we don't have
   // these
-  sslCrt: "local.crt",
-  sslKey: "local.key",
+  sslCrt: process.env.HTTPS_CERT_FULLCHAIN || '../ssl/cert.pem',
+  sslKey: process.env.HTTPS_CERT_PRIVKEY || '../ssl/key.pem',
 
   mediasoup: {
     worker: {
