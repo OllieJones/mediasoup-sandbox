@@ -1,4 +1,3 @@
-
 import * as config from './config';
 import * as mediasoup from 'mediasoup-client';
 import deepEqual from 'deep-equal';
@@ -51,7 +50,7 @@ export async function main() {
   }
 
   // use sendBeacon to tell the server we're disconnecting when
-  // the page unloads
+  // the page unloads   //TODO this isn't right.  Should be on visibility event
   window.addEventListener('unload', () => sig('leave', {}, true));
 }
 

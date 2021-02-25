@@ -5,7 +5,7 @@ const express = require('express');
 const https = require('https');
 const fs = require('fs');
 
-const expressApp = express();
+const app = express();
 let httpsServer;
 
 const log = debugModule('demo-app');
@@ -80,7 +80,7 @@ const roomState = {
 // might as well just send everything in this directory ...
 //
 
-expressApp.use(express.static(__dirname));
+app.use(express.static(__dirname));
 
 //
 // main() -- our execution entry point
@@ -98,7 +98,7 @@ async function main() {
       cert: fs.readFileSync(config.sslCrt),
       key: fs.readFileSync(config.sslKey),
     };
-    httpsServer = https.createServer(tls, expressApp);
+    httpsServer = https.createServer(tls, app);
     httpsServer.on('error', (e) => {
       console.error('https server error,', e.message);
     });
@@ -116,7 +116,7 @@ async function main() {
     } else {
       err('could not start https server', e);
     }
-    expressApp.listen(config.httpPort, config.httpIp, () => {
+    app.listen(config.httpPort, config.httpIp, () => {
       console.log(`http server listening on port ${config.httpPort}`);
     });
   }
@@ -190,14 +190,14 @@ async function startMediasoup() {
 // lets us use sendBeacon or fetch interchangeably to POST to
 // signaling endpoints. (sendBeacon can't set the Content-Type header)
 //
-expressApp.use(express.json({ type: '*/*' }));
+app.use(express.json({ type: '*/*' }));
 
 // --> /signaling/sync
 //
 // client polling endpoint. send back our 'peers' data structure and
 // 'activeSpeaker' info
 //
-expressApp.post('/signaling/sync', async (req, res) => {
+app.post('/signaling/sync', async (req, res) => {
   let { peerId } = req.body;
   try {
     // make sure this peer is connected. if we've disconnected the
@@ -226,7 +226,7 @@ expressApp.post('/signaling/sync', async (req, res) => {
 // transport that the peer will use for receiving media. returns
 // router rtpCapabilities for mediasoup-client device initialization
 //
-expressApp.post('/signaling/join-as-new-peer', async (req, res) => {
+app.post('/signaling/join-as-new-peer', async (req, res) => {
   try {
     let { peerId } = req.body,
         now = Date.now();
@@ -239,6 +239,7 @@ expressApp.post('/signaling/join-as-new-peer', async (req, res) => {
     };
 
     res.send({ routerRtpCapabilities: router.rtpCapabilities });
+    log('rtpCapabilities', router.rtpCapabilities)
   } catch (e) {
     console.error('error in /signaling/join-as-new-peer', e);
     res.send({ error: e });
@@ -250,7 +251,7 @@ expressApp.post('/signaling/join-as-new-peer', async (req, res) => {
 // removes the peer from the roomState data structure and and closes
 // all associated mediasoup objects
 //
-expressApp.post('/signaling/leave', async (req, res) => {
+app.post('/signaling/leave', async (req, res) => {
   try {
     let { peerId } = req.body;
     log('leave', peerId);
@@ -328,7 +329,7 @@ async function closeConsumer(consumer) {
 // create a mediasoup transport object and send back info needed
 // to create a transport object on the client side
 //
-expressApp.post('/signaling/create-transport', async (req, res) => {
+app.post('/signaling/create-transport', async (req, res) => {
   try {
     let { peerId, direction } = req.body;
     log('create-transport', peerId, direction);
@@ -369,7 +370,7 @@ async function createWebRtcTransport({ peerId, direction }) {
 // called from inside a client's `transport.on('connect')` event
 // handler.
 //
-expressApp.post('/signaling/connect-transport', async (req, res) => {
+app.post('/signaling/connect-transport', async (req, res) => {
   try {
     let { peerId, transportId, dtlsParameters } = req.body,
         transport = roomState.transports[transportId];
@@ -395,7 +396,7 @@ expressApp.post('/signaling/connect-transport', async (req, res) => {
 // called by a client that wants to close a single transport (for
 // example, a client that is no longer sending any media).
 //
-expressApp.post('/signaling/close-transport', async (req, res) => {
+app.post('/signaling/close-transport', async (req, res) => {
   try {
     let { peerId, transportId } = req.body,
         transport = roomState.transports[transportId];
@@ -420,7 +421,7 @@ expressApp.post('/signaling/close-transport', async (req, res) => {
 //
 // called by a client that is no longer sending a specific track
 //
-expressApp.post('/signaling/close-producer', async (req, res) => {
+app.post('/signaling/close-producer', async (req, res) => {
   try {
     let { peerId, producerId } = req.body,
         producer = roomState.producers.find((p) => p.id === producerId);
@@ -446,7 +447,7 @@ expressApp.post('/signaling/close-producer', async (req, res) => {
 //
 // called from inside a client's `transport.on('produce')` event handler.
 //
-expressApp.post('/signaling/send-track', async (req, res) => {
+app.post('/signaling/send-track', async (req, res) => {
   try {
     let { peerId, transportId, kind, rtpParameters,
           paused=false, appData } = req.body,
@@ -496,7 +497,7 @@ expressApp.post('/signaling/send-track', async (req, res) => {
 // object on the client side. always start consumers paused. client
 // will request media to resume when the connection completes
 //
-expressApp.post('/signaling/recv-track', async (req, res) => {
+app.post('/signaling/recv-track', async (req, res) => {
   try {
     let { peerId, mediaPeerId, mediaTag, rtpCapabilities } = req.body;
 
@@ -588,7 +589,7 @@ expressApp.post('/signaling/recv-track', async (req, res) => {
 //
 // called to pause receiving a track for a specific client
 //
-expressApp.post('/signaling/pause-consumer', async (req, res) => {
+app.post('/signaling/pause-consumer', async (req, res) => {
   try {
     let { peerId, consumerId } = req.body,
         consumer = roomState.consumers.find((c) => c.id === consumerId);
@@ -614,7 +615,7 @@ expressApp.post('/signaling/pause-consumer', async (req, res) => {
 //
 // called to resume receiving a track for a specific client
 //
-expressApp.post('/signaling/resume-consumer', async (req, res) => {
+app.post('/signaling/resume-consumer', async (req, res) => {
   try {
     let { peerId, consumerId } = req.body,
         consumer = roomState.consumers.find((c) => c.id === consumerId);
@@ -641,7 +642,7 @@ expressApp.post('/signaling/resume-consumer', async (req, res) => {
 // called to stop receiving a track for a specific client. close and
 // clean up consumer object
 //
-expressApp.post('/signaling/close-consumer', async (req, res) => {
+app.post('/signaling/close-consumer', async (req, res) => {
   try {
   let { peerId, consumerId } = req.body,
       consumer = roomState.consumers.find((c) => c.id === consumerId);
@@ -666,7 +667,7 @@ expressApp.post('/signaling/close-consumer', async (req, res) => {
 // called to set the largest spatial layer that a specific client
 // wants to receive
 //
-expressApp.post('/signaling/consumer-set-layers', async (req, res) => {
+app.post('/signaling/consumer-set-layers', async (req, res) => {
   try {
     let { peerId, consumerId, spatialLayer } = req.body,
         consumer = roomState.consumers.find((c) => c.id === consumerId);
@@ -692,7 +693,7 @@ expressApp.post('/signaling/consumer-set-layers', async (req, res) => {
 //
 // called to stop sending a track from a specific client
 //
-expressApp.post('/signaling/pause-producer', async (req, res) => {
+app.post('/signaling/pause-producer', async (req, res) => {
   try {
     let { peerId, producerId } = req.body,
         producer = roomState.producers.find((p) => p.id === producerId);
@@ -720,7 +721,7 @@ expressApp.post('/signaling/pause-producer', async (req, res) => {
 //
 // called to resume sending a track from a specific client
 //
-expressApp.post('/signaling/resume-producer', async (req, res) => {
+app.post('/signaling/resume-producer', async (req, res) => {
   try {
     let { peerId, producerId } = req.body,
         producer = roomState.producers.find((p) => p.id === producerId);
