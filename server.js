@@ -88,11 +88,11 @@ app.use(express.static(__dirname))
 
 async function main () {
   // start mediasoup
-  console.log('starting mediasoup');
+  log('starting mediasoup');
   ({ worker, router, audioLevelObserver } = await startMediasoup())
 
   // start https server, falling back to http if https fails
-  console.log('starting express')
+  log('starting express')
   try {
     const tls = {
       cert: fs.readFileSync(config.sslCrt),
@@ -100,29 +100,29 @@ async function main () {
     }
     httpsServer = https.createServer(tls, app)
     httpsServer.on('error', (e) => {
-      console.error('https server error,', e.message)
+      err('https server error,', e.message)
     })
     await new Promise((resolve) => {
       httpsServer.listen(config.httpPort, config.httpIp, () => {
-        console.log(`server is running and listening on ` +
+        log(`server is running and listening on ` +
           `https://${config.httpIp}:${config.httpPort}`)
         resolve()
       })
     })
   } catch (e) {
     if (e.code === 'ENOENT') {
-      console.error('no certificates found (check config.js)')
-      console.error('  could not start https server ... trying http')
+      warn('no certificates found (check config.js)')
+      warn('  could not start https server ... trying http')
     } else {
       err('could not start https server', e)
     }
     app.listen(config.httpPort, config.httpIp, () => {
-      console.log(`http server listening on port ${config.httpPort}`)
+      log(`http server listening on port ${config.httpPort}`)
     })
   }
 
   // periodically clean up peers that disconnected without sending us
-  // a final "beacon"
+  // a final "leave" request beacon
   setInterval(() => {
     let now = Date.now()
     Object.entries(roomState.peers).forEach(([id, p]) => {
@@ -152,7 +152,7 @@ async function startMediasoup () {
   })
 
   worker.on('died', () => {
-    console.error('mediasoup worker died (this should never happen)')
+    err('mediasoup worker died (this should never happen)')
     process.exit(1)
   })
 
@@ -220,7 +220,7 @@ app.post('/signaling/sync', async (req, res) => {
       activeSpeaker: roomState.activeSpeaker
     })
   } catch (e) {
-    console.error(e.message)
+    err(e.message)
     res.send({ error: e.message })
   }
 })
@@ -244,9 +244,9 @@ app.post('/signaling/join-as-new-peer', async (req, res) => {
     }
 
     res.send({ routerRtpCapabilities: router.rtpCapabilities })
-    log('rtpCapabilities', router.rtpCapabilities)
+    log('rtpCapabilities', JSON.stringify(router.rtpCapabilities, null, 2))
   } catch (e) {
-    console.error('error in /signaling/join-as-new-peer', e)
+    err('error in /signaling/join-as-new-peer', e)
     res.send({ error: e })
   }
 })
@@ -264,7 +264,7 @@ app.post('/signaling/leave', async (req, res) => {
     await closePeer(peerId)
     res.send({ left: true })
   } catch (e) {
-    console.error('error in /signaling/leave', e)
+    err('error in /signaling/leave', e)
     res.send({ error: e })
   }
 })
@@ -297,7 +297,7 @@ async function closeTransport (transport) {
 }
 
 async function closeProducer (producer) {
-  log('closing producer', producer.id, producer.appData)
+  log('closing producer', producer.id, JSON.stringify(producer.appData, null, 2))
   try {
     await producer.close()
 
@@ -316,7 +316,7 @@ async function closeProducer (producer) {
 }
 
 async function closeConsumer (consumer) {
-  log('closing consumer', consumer.id, consumer.appData)
+  log('closing consumer', consumer.id, JSON.stringify(consumer.appData, null, 2))
   await consumer.close()
 
   // remove this consumer from our roomState.consumers list
@@ -343,11 +343,11 @@ app.post('/signaling/create-transport', async (req, res) => {
 
     const iceServers = await getIceServers()
     let { id, iceParameters, iceCandidates, dtlsParameters } = transport
-    res.send({
-      transportOptions: { id, iceParameters, iceCandidates, dtlsParameters, iceServers: [iceServers]   }
-    })
+    const transportOptions = { id, iceParameters, iceCandidates, dtlsParameters, iceServers: [iceServers] }
+    log('transportOptions', peerId, JSON.stringify(transportOptions, null, 2))
+    res.send({ transportOptions })
   } catch (e) {
-    console.error('error in /signaling/create-transport', e)
+    err('error in /signaling/create-transport', e)
     res.send({ error: e })
   }
 })
@@ -386,12 +386,12 @@ app.post('/signaling/connect-transport', async (req, res) => {
       return
     }
 
-    log('connect-transport', peerId, transport.appData)
+    log('connect-transport', peerId, JSON.stringify(transport.appData, null, 2))
 
     await transport.connect({ dtlsParameters })
     res.send({ connected: true })
   } catch (e) {
-    console.error('error in /signaling/connect-transport', e)
+    err('error in /signaling/connect-transport', e)
     res.send({ error: e })
   }
 })
@@ -412,12 +412,12 @@ app.post('/signaling/close-transport', async (req, res) => {
       return
     }
 
-    log('close-transport', peerId, transport.appData)
+    log('close-transport', peerId, JSON.stringify(transport.appData, null, 2))
 
     await closeTransport(transport)
     res.send({ closed: true })
   } catch (e) {
-    console.error('error in /signaling/close-transport', e)
+    err('error in /signaling/close-transport', e)
     res.send({ error: e.message })
   }
 })
@@ -437,12 +437,12 @@ app.post('/signaling/close-producer', async (req, res) => {
       return
     }
 
-    log('close-producer', peerId, producer.appData)
+    log('close-producer', peerId, JSON.stringify(producer.appData, null, 2))
 
     await closeProducer(producer)
     res.send({ closed: true })
   } catch (e) {
-    console.error(e)
+    err('close-producer', e)
     res.send({ error: e.message })
   }
 })
@@ -453,7 +453,7 @@ app.post('/signaling/close-producer', async (req, res) => {
 //
 app.post('/signaling/send-track', async (req, res) => {
   try {
-    let {
+    const {
         peerId, transportId, kind, rtpParameters,
         paused = false, appData
       } = req.body,
@@ -465,6 +465,7 @@ app.post('/signaling/send-track', async (req, res) => {
       return
     }
 
+    log('send-track', JSON.stringify(req.body, null, 2))
     let producer = await transport.produce({
       kind,
       rtpParameters,
@@ -571,11 +572,11 @@ app.post('/signaling/recv-track', async (req, res) => {
 
     // update above data structure when layer changes.
     consumer.on('layerschange', (layers) => {
-      log(`consumer layerschange ${mediaPeerId}->${peerId}`, mediaTag, layers)
+      log(`consumer layerschange ${mediaPeerId}->${peerId}`, mediaTag, layers || 'none')
       if (roomState.peers[peerId] &&
         roomState.peers[peerId].consumerLayers[consumer.id]) {
         roomState.peers[peerId].consumerLayers[consumer.id]
-          .currentLayer = layers && layers.spatialLayer
+          .currentLayer = (layers && layers.spatialLayer) || undefined
       }
     })
 
@@ -588,7 +589,7 @@ app.post('/signaling/recv-track', async (req, res) => {
       producerPaused: consumer.producerPaused
     })
   } catch (e) {
-    console.error('error in /signaling/recv-track', e)
+    err('error in /signaling/recv-track', e)
     res.send({ error: e })
   }
 })
@@ -608,13 +609,13 @@ app.post('/signaling/pause-consumer', async (req, res) => {
       return
     }
 
-    log('pause-consumer', consumer.appData)
+    log('pause-consumer', JSON.stringify(consumer.appData, null, 2))
 
     await consumer.pause()
 
     res.send({ paused: true })
   } catch (e) {
-    console.error('error in /signaling/pause-consumer', e)
+    err('error in /signaling/pause-consumer', e)
     res.send({ error: e })
   }
 })
@@ -634,13 +635,13 @@ app.post('/signaling/resume-consumer', async (req, res) => {
       return
     }
 
-    log('resume-consumer', consumer.appData)
+    log('resume-consumer', JSON.stringify(consumer.appData, null, 2))
 
     await consumer.resume()
 
     res.send({ resumed: true })
   } catch (e) {
-    console.error('error in /signaling/resume-consumer', e)
+    err('error in /signaling/resume-consumer', e)
     res.send({ error: e })
   }
 })
@@ -665,7 +666,7 @@ app.post('/signaling/close-consumer', async (req, res) => {
 
     res.send({ closed: true })
   } catch (e) {
-    console.error('error in /signaling/close-consumer', e)
+    err('error in /signaling/close-consumer', e)
     res.send({ error: e })
   }
 })
@@ -686,13 +687,13 @@ app.post('/signaling/consumer-set-layers', async (req, res) => {
       return
     }
 
-    log('consumer-set-layers', spatialLayer, consumer.appData)
+    log('consumer-set-layers', spatialLayer, JSON.stringify(consumer.appData, null, 2))
 
     await consumer.setPreferredLayers({ spatialLayer })
 
     res.send({ layersSet: true })
   } catch (e) {
-    console.error('error in /signaling/consumer-set-layers', e)
+    err('error in /signaling/consumer-set-layers', e)
     res.send({ error: e })
   }
 })
@@ -712,7 +713,7 @@ app.post('/signaling/pause-producer', async (req, res) => {
       return
     }
 
-    log('pause-producer', producer.appData)
+    log('pause-producer', JSON.stringify(producer.appData, null, 2))
 
     await producer.pause()
 
@@ -720,7 +721,7 @@ app.post('/signaling/pause-producer', async (req, res) => {
 
     res.send({ paused: true })
   } catch (e) {
-    console.error('error in /signaling/pause-producer', e)
+    err('error in /signaling/pause-producer', e)
     res.send({ error: e })
   }
 })
@@ -740,7 +741,7 @@ app.post('/signaling/resume-producer', async (req, res) => {
       return
     }
 
-    log('resume-producer', producer.appData)
+    log('resume-producer', JSON.stringify(producer.appData, null, 2))
 
     await producer.resume()
 
@@ -748,7 +749,7 @@ app.post('/signaling/resume-producer', async (req, res) => {
 
     res.send({ resumed: true })
   } catch (e) {
-    console.error('error in /signaling/resume-producer', e)
+    err('error in /signaling/resume-producer', e)
     res.send({ error: e })
   }
 })
@@ -797,6 +798,7 @@ async function updatePeerStats () {
 }
 
 const iceServersCache = {}
+
 async function getIceServers () {
   const now = Date.now()
   if (iceServersCache.expires <= now) return iceServersCache.value
@@ -809,9 +811,9 @@ async function getIceServers () {
   if (typeof stunturnUrl !== 'string') return
   const options = {
     method: 'put',
-    data: {format: 'urls'},
+    data: { format: 'urls' },
     headers: {
-      'Authorization': `Basic ${Buffer.from( stunturnCredential ).toString( 'base64' )}`
+      'Authorization': `Basic ${Buffer.from(stunturnCredential).toString('base64')}`
     }
   }
   const response = await axios(stunturnUrl, options)

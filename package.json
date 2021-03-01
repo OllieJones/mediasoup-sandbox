@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npx rollup -c",
     "build-client-dev": "npx rollup -c -w",
-    "start": "node server.js"
+    "start": "npx rollup -c && node server.js"
   },
   "author": "Kwindla Hultman Kramer",
   "license": "ISC",
@@ -15,7 +15,7 @@
     "deep-equal": "^1.0.1",
     "dotenv": "^8.2.0",
     "express": "^4.16.4",
-    "mediasoup": "^3.6.24",
+    "mediasoup": "^3.6.32",
     "mediasoup-client": "^3.6.21"
   },
   "devDependencies": {

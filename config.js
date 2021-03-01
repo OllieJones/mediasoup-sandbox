@@ -1,3 +1,4 @@
+const THIS_IS_A_SERVER = (typeof window === 'undefined')
 const config = {
   // http server ip, port, and peer timeout constant
   //
@@ -17,11 +18,11 @@ const config = {
         'rtp',
         'srtp',
         'rtcp',
-        // 'rtx',
-        // 'bwe',
-        // 'score',
-        // 'simulcast',
-        // 'svc'
+        'rtx',
+        'bwe',
+        'score',
+        'simulcast',
+        'svc'
       ],
     },
     router: {
@@ -32,14 +33,14 @@ const config = {
           clockRate: 48000,
           channels: 2,
         },
-        {
+/*        {
           kind: 'video',
           mimeType: 'video/VP8',
           clockRate: 90000,
           parameters: {
             //                'x-google-start-bitrate': 1000
           },
-        },
+        }, */
         {
           kind: 'video',
           mimeType: 'video/h264',
@@ -48,7 +49,6 @@ const config = {
             'packetization-mode': 1,
             'profile-level-id': '4d0032',
             'level-asymmetry-allowed': 1,
-            //						  'x-google-start-bitrate'  : 1000
           },
         },
         {
@@ -59,7 +59,6 @@ const config = {
             'packetization-mode': 1,
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
-            //						  'x-google-start-bitrate'  : 1000
           },
         },
       ],
@@ -75,7 +74,7 @@ const config = {
   },
 }
 
-if (typeof window === 'undefined') {
+if (THIS_IS_A_SERVER) {
   require('dotenv').config()
   // ssl certs. we'll start as http instead of https if we don't have
   // these
@@ -96,7 +95,7 @@ function getListenIps () {
           if (address.family === 'IPv4') {
             listenIps.push({ ip: address.address, announcedIp: null })
           }
-          /* ignore link-local and other special addresses.
+          /* ignore link-local and other special ipv6 addresses.
            * https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
            */
           else if (address.family === 'IPv6' && address.address[0] !== 'f') {
