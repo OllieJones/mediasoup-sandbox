@@ -35,14 +35,6 @@ const config = {
         },
 /*        {
           kind: 'video',
-          mimeType: 'video/VP8',
-          clockRate: 90000,
-          parameters: {
-            //                'x-google-start-bitrate': 1000
-          },
-        }, */
-        {
-          kind: 'video',
           mimeType: 'video/h264',
           clockRate: 90000,
           parameters: {
@@ -59,6 +51,14 @@ const config = {
             'packetization-mode': 1,
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
+          },
+        }, */
+        {
+          kind: 'video',
+          mimeType: 'video/VP8',
+          clockRate: 90000,
+          parameters: {
+            //                'x-google-start-bitrate': 1000
           },
         },
       ],
@@ -81,7 +81,6 @@ if (THIS_IS_A_SERVER) {
   config.sslCrt = process.env.HTTPS_CERT_FULLCHAIN || '../ssl/cert.pem'
   config.sslKey = process.env.HTTPS_CERT_PRIVKEY || '../ssl/key.pem'
 }
-
 
 function getListenIps () {
   const listenIps = []

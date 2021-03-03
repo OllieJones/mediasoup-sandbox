@@ -4,12 +4,10 @@ import debugModule from 'debug'
 
 const $ = document.querySelector.bind(document)
 const $$ = document.querySelectorAll.bind(document)
-const clientLog = debugModule('mediasoup-client:*')
+debugModule('mediasoup-client:*')
 const log = debugModule('demo-app')
 const warn = debugModule('demo-app:WARN')
 const err = debugModule('demo-app:ERROR')
-
-let config
 
 //
 // export all the references we use internally to manage call state,
@@ -43,10 +41,10 @@ export async function main () {
     device = new mediasoup.Device()
   } catch (e) {
     if (e.name === 'UnsupportedError') {
-      err('demo-app','browser not supported for video calls')
+      err('demo-app', 'browser not supported for video calls')
       return
     } else {
-      err('demo-app',e)
+      err('demo-app', e)
     }
   }
 
@@ -68,7 +66,7 @@ export async function joinRoom () {
     return
   }
 
-  log('demo-app','join room')
+  log('demo-app', 'join room')
   $('#join-control').style.display = 'none'
 
   try {
@@ -90,13 +88,13 @@ export async function joinRoom () {
     let { error } = await pollAndUpdate()
     if (error) {
       clearInterval(pollingInterval)
-      err('demo-app','poll', error)
+      err('demo-app', 'poll', error)
     }
   }, 1000)
 }
 
 export async function sendCameraStreams () {
-  log('demo-app','send camera streams')
+  log('demo-app', 'send camera streams')
   $('#send-camera').style.display = 'none'
 
   // make sure we've joined the room and started our camera. these
@@ -154,7 +152,7 @@ export async function sendCameraStreams () {
 }
 
 export async function startScreenshare () {
-  log('demo-app','start screen share')
+  log('demo-app', 'start screen share')
   $('#share-screen').style.display = 'none'
 
   // make sure we've joined the room and that we have a sending
@@ -188,7 +186,7 @@ export async function startScreenshare () {
   // handler for screen share stopped event (triggered by the
   // browser's built-in screen sharing ui)
   screenVideoProducer.track.onended = async () => {
-    log('demo-app','screen share stopped')
+    log('demo-app', 'screen share stopped')
     try {
       await screenVideoProducer.pause()
       let { error } = await sig('close-producer',
@@ -196,7 +194,7 @@ export async function startScreenshare () {
       await screenVideoProducer.close()
       screenVideoProducer = null
       if (error) {
-        err('demo-app',error)
+        err('demo-app', error)
       }
       if (screenAudioProducer) {
         let { error } = await sig('close-producer',
@@ -204,7 +202,7 @@ export async function startScreenshare () {
         await screenAudioProducer.close()
         screenAudioProducer = null
         if (error) {
-          err('demo-app',error)
+          err('demo-app', error)
         }
       }
     } catch (e) {
@@ -229,9 +227,9 @@ export async function startCamera () {
     const localCamConstraints = camEncodings().userMediaConstraints
     localCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
     const settings = localCam.getVideoTracks()[0].getSettings()
-    log('demo-app','start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
+    log('demo-app', 'start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
   } catch (e) {
-    err('demo-app','start camera', e)
+    err('demo-app', 'start camera', e)
   }
 }
 
@@ -239,18 +237,18 @@ export async function startCamera () {
 // list (if we have multiple cameras)
 export async function cycleCamera () {
   if (!(camVideoProducer && camVideoProducer.track)) {
-    warn('demo-app','cannot cycle camera - no current camera track')
+    warn('demo-app', 'cannot cycle camera - no current camera track')
     return
   }
 
-  log('demo-app','cycle camera')
+  log('demo-app', 'cycle camera')
 
   // find "next" camera in camera list
   let deviceId = await getCurrentDeviceId()
   const allMedia = await navigator.mediaDevices.enumerateDevices()
   const vidMedia = allMedia.filter((d) => d.kind === 'videoinput')
   if (!vidMedia.length > 1) {
-    warn('demo-app','cannot cycle camera - only one camera')
+    warn('demo-app', 'cannot cycle camera - only one camera')
     return
   }
   let idx = vidMedia.findIndex((d) => d.deviceId === deviceId)
@@ -264,18 +262,27 @@ export async function cycleCamera () {
   // just in case browsers want to group audio/video streams together
   // from the same media device when possible (though they don't seem to,
   // currently)
-  log('demo-app','cycle camera', 'getting a video stream from new media device', vidMedia[idx].label)
+  log('demo-app', 'cycle camera', 'getting a video stream from new media device', vidMedia[idx].label)
   const localCamConstraints = camEncodings().userMediaConstraints
-  localCamConstraints.deviceId = { exact: vidMedia[idx].deviceId }
-  localCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
-  const settings = localCam.getVideoTracks()[0].getSettings()
-  log('demo-app','cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
+  /* put the chosen deviceId item into localCamConstraints.video */
+  if (!localCamConstraints.video) localCamConstraints.video = {}
+  if (typeof localCamConstraints.video === 'boolean') localCamConstraints.video = {}
+  localCamConstraints.video.deviceId = { exact: vidMedia[idx].deviceId }
+  if (localCam) {
+    for (const track of localCam.getTracks()) {
+      track.stop()
+    }
+  }
+  const newCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
+  const newVideoTrack = newCam.getVideoTracks()[0]
+  const settings = newVideoTrack.getSettings()
+  log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
   // replace the tracks we are sending
-  await camVideoProducer.replaceTrack({ track: localCam.getVideoTracks()[0] })
+  await camVideoProducer.replaceTrack({ track: newVideoTrack })
   //await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] });
-
+  localCam = newCam
   // update the user interface
-  showCameraInfo()
+  await showCameraInfo()
 }
 
 export async function stopStreams () {
@@ -286,13 +293,13 @@ export async function stopStreams () {
     return
   }
 
-  log('demo-app','stop sending media streams')
+  log('demo-app', 'stop sending media streams')
   $('#stop-streams').style.display = 'none'
 
   let { error } = await sig('close-transport',
     { transportId: sendTransport.id })
   if (error) {
-    err('demo-app','stop sending media streams', error)
+    err('demo-app', 'stop sending media streams', error)
   }
   // closing the sendTransport closes all associated producers. when
   // the camVideoProducer and camAudioProducer are closed,
@@ -324,7 +331,7 @@ export async function leaveRoom () {
     return
   }
 
-  log('demo-app','leave room')
+  log('demo-app', 'leave room')
   $('#leave-room').style.display = 'none'
 
   // stop polling
@@ -333,7 +340,7 @@ export async function leaveRoom () {
   // close everything on the server-side (transports, producers, consumers)
   let { error } = await sig('leave')
   if (error) {
-    err('demo-app','leave room', error)
+    err('demo-app', 'leave room', error)
   }
 
   // closing the transports closes all producers and consumers. we
@@ -365,25 +372,24 @@ export async function leaveRoom () {
   $('#share-screen').style.display = 'initial'
   $('#local-screen-pause-ctrl').style.display = 'none'
   $('#local-screen-audio-pause-ctrl').style.display = 'none'
-  showCameraInfo()
+  await showCameraInfo()
   updateCamVideoProducerStatsDisplay()
   updateScreenVideoProducerStatsDisplay()
-  updatePeersDisplay()
+  await updatePeersDisplay()
 }
 
 export async function subscribeToTrack (peerId, mediaTag) {
-  log('demo-app','subscribe to track', peerId, mediaTag)
+  log('demo-app', 'subscribe to track', peerId, mediaTag)
 
   // create a receive transport if we don't already have one
   if (!recvTransport) {
     recvTransport = await createTransport('recv')
   }
 
-  // if we do already have a consumer, we shouldn't have called this
-  // method
+  // if we do already have a consumer, we shouldn't have called this method
   let consumer = findConsumerForTrack(peerId, mediaTag)
   if (consumer) {
-    err('demo-app','subscribe to track', 'already have consumer for track', peerId, mediaTag)
+    err('demo-app', 'subscribe to track', 'already have consumer for track', peerId, mediaTag)
     return
   }
 
@@ -394,18 +400,18 @@ export async function subscribeToTrack (peerId, mediaTag) {
     mediaPeerId: peerId,
     rtpCapabilities: device.rtpCapabilities
   })
-  log('demo-app','subscribe to track','consumer parameters', consumerParameters)
+  log('demo-app', 'subscribe to track', 'consumer parameters', consumerParameters)
   consumer = await recvTransport.consume({
     ...consumerParameters,
     appData: { peerId, mediaTag }
   })
-  log('demo-app','subscribe to track','created new consumer', consumer.id)
+  log('demo-app', 'subscribe to track', 'created new consumer', consumer.id)
 
   // the server-side consumer will be started in paused state. wait
   // until we're connected, then send a resume request to the server
   // to get our first keyframe and start displaying video
   while (recvTransport.connectionState !== 'connected') {
-    log('demo-app','subscribe to track','  transport connstate', recvTransport.connectionState)
+    log('demo-app', 'subscribe to track', '  transport connstate', recvTransport.connectionState)
     await sleep(100)
   }
   // okay, we're ready. let's ask the peer to send us media
@@ -425,11 +431,11 @@ export async function unsubscribeFromTrack (peerId, mediaTag) {
     return
   }
 
-  log('demo-app','unsubscribe from track', peerId, mediaTag)
+  log('demo-app', 'unsubscribe from track', peerId, mediaTag)
   try {
     await closeConsumer(consumer)
   } catch (e) {
-    err('demo-app','unsubscribe from track', e)
+    err('demo-app', 'unsubscribe from track', e)
   }
   // force update of ui
   updatePeersDisplay()
@@ -437,48 +443,48 @@ export async function unsubscribeFromTrack (peerId, mediaTag) {
 
 export async function pauseConsumer (consumer) {
   if (consumer) {
-    log('demo-app','pause consumer', consumer.appData.peerId, consumer.appData.mediaTag)
+    log('demo-app', 'pause consumer', consumer.appData.peerId, consumer.appData.mediaTag)
     try {
       await sig('pause-consumer', { consumerId: consumer.id })
       await consumer.pause()
     } catch (e) {
-      err('demo-app','pause consumer', e)
+      err('demo-app', 'pause consumer', e)
     }
   }
 }
 
 export async function resumeConsumer (consumer) {
   if (consumer) {
-    log('demo-app','resume consumer', consumer.appData.peerId, consumer.appData.mediaTag)
+    log('demo-app', 'resume consumer', consumer.appData.peerId, consumer.appData.mediaTag)
     try {
       await sig('resume-consumer', { consumerId: consumer.id })
       await consumer.resume()
     } catch (e) {
-      err('demo-app','resume consumer', e)
+      err('demo-app', 'resume consumer', e)
     }
   }
 }
 
 export async function pauseProducer (producer) {
   if (producer) {
-    log('demo-app','pause producer', producer.appData.mediaTag)
+    log('demo-app', 'pause producer', producer.appData.mediaTag)
     try {
       await sig('pause-producer', { producerId: producer.id })
       await producer.pause()
     } catch (e) {
-      err('demo-app','pause producer', e)
+      err('demo-app', 'pause producer', e)
     }
   }
 }
 
 export async function resumeProducer (producer) {
   if (producer) {
-    log('demo-app','resume producer', producer.appData.mediaTag)
+    log('demo-app', 'resume producer', producer.appData.mediaTag)
     try {
       await sig('resume-producer', { producerId: producer.id })
       await producer.resume()
     } catch (e) {
-      err('demo-app','resume producer', e)
+      err('demo-app', 'resume producer', e)
     }
   }
 }
@@ -487,7 +493,7 @@ async function closeConsumer (consumer) {
   if (!consumer) {
     return
   }
-  log('demo-app','closing consumer', consumer.appData.peerId, consumer.appData.mediaTag)
+  log('demo-app', 'closing consumer', consumer.appData.peerId, consumer.appData.mediaTag)
   try {
     // tell the server we're closing this consumer. (the server-side
     // consumer may have been closed already, but that's okay.)
@@ -497,7 +503,7 @@ async function closeConsumer (consumer) {
     consumers = consumers.filter((c) => c !== consumer)
     removeVideoAudio(consumer)
   } catch (e) {
-    err('demo-app','closing consumer', e)
+    err('demo-app', 'closing consumer', e)
   }
 }
 
@@ -505,13 +511,13 @@ async function closeConsumer (consumer) {
 // appropriate to the transport's direction
 //
 async function createTransport (direction) {
-  log('demo-app',`create ${direction} transport`)
+  log('demo-app', `create ${direction} transport`)
 
   // ask the server to create a server-side transport object and send
   // us back the info we need to create a client-side transport
   let transport,
     { transportOptions } = await sig('create-transport', { direction })
-  log('demo-app',`create ${direction} transport`, 'transport options', transportOptions)
+  log('demo-app', `create ${direction} transport`, 'transport options', transportOptions)
 
   if (direction === 'recv') {
     transport = await device.createRecvTransport(transportOptions)
@@ -525,13 +531,13 @@ async function createTransport (direction) {
   // start flowing for the first time. send dtlsParameters to the
   // server, then call callback() on success or errback() on failure.
   transport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-    log('demo-app','transport connect event', direction)
+    log('demo-app', 'transport connect event', direction)
     let { error } = await sig('connect-transport', {
       transportId: transportOptions.id,
       dtlsParameters
     })
     if (error) {
-      err('demo-app','transport connect event', 'error connecting transport', direction, error)
+      err('demo-app', 'transport connect event', 'error connecting transport', direction, error)
       errback()
       return
     }
@@ -544,7 +550,7 @@ async function createTransport (direction) {
     // passed as a parameter
     transport.on('produce', async ({ kind, rtpParameters, appData },
       callback, errback) => {
-      log('demo-app','transport produce event', appData.mediaTag)
+      log('demo-app', 'transport produce event', appData.mediaTag)
       // we may want to start out paused (if the checkboxes in the ui
       // aren't checked, for each media type. not very clean code, here
       // but, you know, this isn't a real application.)
@@ -566,7 +572,7 @@ async function createTransport (direction) {
         appData
       })
       if (error) {
-        err('demo-app','transport produce event', 'error setting up server-side producer', error)
+        err('demo-app', 'transport produce event', 'error setting up server-side producer', error)
         errback()
         return
       }
@@ -578,12 +584,12 @@ async function createTransport (direction) {
   // failed, or disconnected, leave the room and reset
   //
   transport.on('connectionstatechange', async (state) => {
-    log('demo-app',`transport ${transport.id} connectionstatechange ${state}`)
+    log('demo-app', `transport ${transport.id} connectionstatechange ${state}`)
     // for this simple sample code, assume that transports being
     // closed is an error (we never close these transports except when
     // we leave the room)
     if (state === 'closed' || state === 'failed' || state === 'disconnected') {
-      log('demo-app',`transport ${transport.id} connectionstatechange ${state}`,
+      log('demo-app', `transport ${transport.id} connectionstatechange ${state}`,
         'transport closed ... leaving the room and resetting')
       leaveRoom()
     }
@@ -624,7 +630,7 @@ async function pollAndUpdate () {
   // for that peer and remove video and audio elements
   for (let id in lastPollSyncData) {
     if (!peers[id]) {
-      log('demo-app',`peer ${id}`, 'has exited')
+      log('demo-app', `peer ${id}`, 'has exited')
       consumers.forEach((consumer) => {
         if (consumer.appData.peerId === id) {
           closeConsumer(consumer)
@@ -638,7 +644,7 @@ async function pollAndUpdate () {
   consumers.forEach((consumer) => {
     let { peerId, mediaTag } = consumer.appData
     if (!peers[peerId].media[mediaTag]) {
-      log('demo-app',`peer ${peerId}`,'has stopped transmitting ${mediaTag}')
+      log('demo-app', `peer ${peerId}`, 'has stopped transmitting ${mediaTag}')
       closeConsumer(consumer)
     }
   })
@@ -713,14 +719,14 @@ export async function changeScreenAudioPaused () {
     pauseProducer(screenAudioProducer)
     $('#local-screen-audio-label').innerHTML = 'screen (paused)'
   } else {
-    resumeProducer(screenAudioProducer)
+    await resumeProducer(screenAudioProducer)
     $('#local-screen-audio-label').innerHTML = 'screen'
   }
 }
 
 export async function updatePeersDisplay (peersInfo = lastPollSyncData,
   sortedPeers = sortPeers(peersInfo)) {
-  log('demo-app','room state updated', peersInfo)
+  log('demo-app', 'room state updated', peersInfo)
 
   $('#available-tracks').innerHTML = ''
   if (camVideoProducer) {
@@ -759,19 +765,21 @@ function makeTrackControlEl (peerName, mediaTag, mediaInfo) {
   let div = document.createElement('div'),
     peerId = (peerName === 'my' ? myPeerId : peerName),
     consumer = findConsumerForTrack(peerId, mediaTag)
-  div.classList = `track-subscribe track-subscribe-${peerId}`
+  div.classList.add(`track-subscribe`)
+  div.classList.add(`track-subscribe-${peerId}`)
 
   let sub = document.createElement('button')
+  sub.classList.add('btn')
+  sub.classList.add('btn-secondary')
   if (!consumer) {
-    sub.innerHTML += 'subscribe'
+    sub.innerHTML += '<i class="fas fa-plus-square"></i>'
     sub.onclick = () => subscribeToTrack(peerId, mediaTag)
-    div.appendChild(sub)
-
   } else {
-    sub.innerHTML += 'unsubscribe'
+    sub.innerHTML += '<i class="fas fa-minus-square"></i>'
     sub.onclick = () => unsubscribeFromTrack(peerId, mediaTag)
     div.appendChild(sub)
   }
+  div.appendChild(sub)
 
   let trackDescription = document.createElement('span')
   trackDescription.innerHTML = `${peerName} ${mediaTag}`
@@ -793,7 +801,7 @@ function makeTrackControlEl (peerName, mediaTag, mediaInfo) {
     let pause = document.createElement('span'),
       checkbox = document.createElement('input'),
       label = document.createElement('label')
-    pause.classList = 'nowrap'
+    pause.classList.add('nowrap')
     checkbox.type = 'checkbox'
     checkbox.checked = !consumer.paused
     checkbox.onchange = async () => {
@@ -821,7 +829,8 @@ function makeTrackControlEl (peerName, mediaTag, mediaInfo) {
 
     if (consumer.kind === 'video') {
       let remoteProducerInfo = document.createElement('span')
-      remoteProducerInfo.classList = 'nowrap track-ctrl'
+      remoteProducerInfo.classList.add('nowrap')
+      remoteProducerInfo.classList.add('track-ctrl')
       remoteProducerInfo.id = `track-ctrl-${consumer.producerId}`
       div.appendChild(remoteProducerInfo)
     }
@@ -853,7 +862,7 @@ function addVideoAudio (consumer) {
   el.play()
     .then(() => {})
     .catch((e) => {
-      err('demo-app',e)
+      err('demo-app', e)
     })
 }
 
@@ -876,7 +885,7 @@ async function showCameraInfo () {
     deviceInfo = devices.find((d) => d.deviceId === deviceId)
   infoEl.innerHTML = `
       ${deviceInfo.label}
-      <button onclick="Client.cycleCamera()">switch camera</button>
+      <button class="btn btn-secondary" onclick="Client.cycleCamera()"><i class="fas fa-random" title="Change Camera"></i></button>
   `
 }
 
@@ -902,7 +911,7 @@ function updateActiveSpeaker () {
   $$('.track-subscribe').forEach((el) => {
     el.classList.remove('active-speaker')
   })
-  if (currentActiveSpeaker.peerId) {
+  if (currentActiveSpeaker && currentActiveSpeaker.peerId) {
     $$(`.track-subscribe-${currentActiveSpeaker.peerId}`).forEach((el) => {
       el.classList.add('active-speaker')
     })
@@ -922,7 +931,7 @@ function updateCamVideoProducerStatsDisplay () {
     producerId: camVideoProducer.id,
     currentLayer: camVideoProducer.maxSpatialLayer,
     layerSwitchFunc: (i) => {
-      console.log('demo-app','client set layers for cam stream')
+      console.log('demo-app', 'client set layers for cam stream')
       camVideoProducer.setMaxSpatialLayer(i)
     }
   })
@@ -941,7 +950,7 @@ function updateScreenVideoProducerStatsDisplay () {
     producerId: screenVideoProducer.id,
     currentLayer: screenVideoProducer.maxSpatialLayer,
     layerSwitchFunc: (i) => {
-      console.log('demo-app','client set layers for screen stream')
+      console.log('demo-app', 'client set layers for screen stream')
       screenVideoProducer.setMaxSpatialLayer(i)
     }
   })
@@ -981,7 +990,7 @@ function updateConsumersStatsDisplay () {
             producerId: consumer.producerId,
             currentLayer: currentLayer,
             layerSwitchFunc: (i) => {
-              console.log('demo-app','ask server to set layers')
+              console.log('demo-app', 'ask server to set layers')
               sig('consumer-set-layers', {
                 consumerId: consumer.id,
                 spatialLayer: i
@@ -992,7 +1001,7 @@ function updateConsumersStatsDisplay () {
       }
     }
   } catch (e) {
-    log('demo-app','error while updating consumers stats display', e)
+    log('demo-app', 'error while updating consumers stats display', e)
   }
 }
 
@@ -1017,7 +1026,7 @@ function makeProducerTrackSelector ({
         x = i
       radio.type = 'radio'
       radio.name = `radio-${internalTag}-${producerId}`
-      radio.checked = currentLayer == undefined ?
+      radio.checked = !currentLayer ?
         (i === stats.length - 1) :
         (i === currentLayer)
       radio.onchange = () => layerSwitchFunc(x)
@@ -1034,26 +1043,28 @@ function makeProducerTrackSelector ({
       container.insertBefore(txt, container.firstChild)
     }
   } catch (e) {
-    log('demo-app','error while updating track stats display', e)
+    log('demo-app', 'error while updating track stats display', e)
   }
 }
 
 function camEncodings () {
 //
 // encodings for outgoing video
-//
+
   const userMediaConstraints = {
     video: {
       width: { min: 176, ideal: 704, max: 704 },
       height: { min: 144, ideal: 576, max: 576 },
       frameRate: { min: 10, ideal: 15, max: 24 },
     },
-    audio: false
+    audio: true
   }
 
-// just two resolutions, for now, as chrome 75 seems to ignore more
-// than two encodings ???
-//
+  //const userMediaConstraints = { video: true, audio: false }
+
+  // just two resolutions, for now, as chrome 75 seems to ignore more
+  // than two encodings ???
+  //
   const encodings =
     [
       { maxBitrate: 256000, scaleResolutionDownBy: 2 },

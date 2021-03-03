@@ -3,6 +3,7 @@ const debugModule = require('debug')
 const mediasoup = require('mediasoup')
 const express = require('express')
 const https = require('https')
+const createError = require('http-errors')
 const fs = require('fs')
 
 const app = express()
@@ -202,7 +203,7 @@ app.post('/signaling/get-config', async (req, res) => {
 // client polling endpoint. send back our 'peers' data structure and
 // 'activeSpeaker' info
 //
-app.post('/signaling/sync', async (req, res) => {
+app.post('/signaling/sync', async (req, res, next) => {
   let { peerId } = req.body
   try {
     // make sure this peer is connected. if we've disconnected the
@@ -221,7 +222,7 @@ app.post('/signaling/sync', async (req, res) => {
     })
   } catch (e) {
     err(e.message)
-    res.send({ error: e.message })
+    next(createError(400, 'sync error', e))
   }
 })
 
@@ -231,7 +232,7 @@ app.post('/signaling/sync', async (req, res) => {
 // transport that the peer will use for receiving media. returns
 // router rtpCapabilities for mediasoup-client device initialization
 //
-app.post('/signaling/join-as-new-peer', async (req, res) => {
+app.post('/signaling/join-as-new-peer', async (req, res, next) => {
   try {
     let { peerId } = req.body,
       now = Date.now()
@@ -247,7 +248,7 @@ app.post('/signaling/join-as-new-peer', async (req, res) => {
     log('rtpCapabilities', JSON.stringify(router.rtpCapabilities, null, 2))
   } catch (e) {
     err('error in /signaling/join-as-new-peer', e)
-    res.send({ error: e })
+    next(createError(400, 'join error',e ))
   }
 })
 
@@ -256,7 +257,7 @@ app.post('/signaling/join-as-new-peer', async (req, res) => {
 // removes the peer from the roomState data structure and and closes
 // all associated mediasoup objects
 //
-app.post('/signaling/leave', async (req, res) => {
+app.post('/signaling/leave', async (req, res, next) => {
   try {
     let { peerId } = req.body
     log('leave', peerId)
@@ -265,7 +266,7 @@ app.post('/signaling/leave', async (req, res) => {
     res.send({ left: true })
   } catch (e) {
     err('error in /signaling/leave', e)
-    res.send({ error: e })
+    next(createError(400, 'closePeer error', e))
   }
 })
 
@@ -333,7 +334,7 @@ async function closeConsumer (consumer) {
 // create a mediasoup transport object and send back info needed
 // to create a transport object on the client side
 //
-app.post('/signaling/create-transport', async (req, res) => {
+app.post('/signaling/create-transport', async (req, res, next) => {
   try {
     let { peerId, direction } = req.body
     log('create-transport', peerId, direction)
@@ -348,7 +349,7 @@ app.post('/signaling/create-transport', async (req, res) => {
     res.send({ transportOptions })
   } catch (e) {
     err('error in /signaling/create-transport', e)
-    res.send({ error: e })
+    next(createError(400, 'createWebRtcTransport error', e))
   }
 })
 
@@ -375,14 +376,14 @@ async function createWebRtcTransport ({ peerId, direction }) {
 // called from inside a client's `transport.on('connect')` event
 // handler.
 //
-app.post('/signaling/connect-transport', async (req, res) => {
+app.post('/signaling/connect-transport', async (req, res, next) => {
   try {
     let { peerId, transportId, dtlsParameters } = req.body,
       transport = roomState.transports[transportId]
 
     if (!transport) {
       err(`connect-transport: server-side transport ${transportId} not found`)
-      res.send({ error: `server-side transport ${transportId} not found` })
+      next(createError(400, `server-side transport ${transportId} not found` ))
       return
     }
 
@@ -392,7 +393,7 @@ app.post('/signaling/connect-transport', async (req, res) => {
     res.send({ connected: true })
   } catch (e) {
     err('error in /signaling/connect-transport', e)
-    res.send({ error: e })
+    next(createError(400, 'transport.connect error', e))
   }
 })
 
@@ -408,8 +409,7 @@ app.post('/signaling/close-transport', async (req, res) => {
 
     if (!transport) {
       err(`close-transport: server-side transport ${transportId} not found`)
-      res.send({ error: `server-side transport ${transportId} not found` })
-      return
+      next(createError(400, `server-side transport ${transportId} not found` ))
     }
 
     log('close-transport', peerId, JSON.stringify(transport.appData, null, 2))
@@ -418,7 +418,7 @@ app.post('/signaling/close-transport', async (req, res) => {
     res.send({ closed: true })
   } catch (e) {
     err('error in /signaling/close-transport', e)
-    res.send({ error: e.message })
+    next(createError(400, 'closeTransport error', e))
   }
 })
 
@@ -433,8 +433,7 @@ app.post('/signaling/close-producer', async (req, res) => {
 
     if (!producer) {
       err(`close-producer: server-side producer ${producerId} not found`)
-      res.send({ error: `server-side producer ${producerId} not found` })
-      return
+      next(createError(400,  `close-producer: server-side producer ${producerId} not found` ))
     }
 
     log('close-producer', peerId, JSON.stringify(producer.appData, null, 2))
@@ -443,7 +442,7 @@ app.post('/signaling/close-producer', async (req, res) => {
     res.send({ closed: true })
   } catch (e) {
     err('close-producer', e)
-    res.send({ error: e.message })
+    next(createError(400, 'closeProducer error',e))
   }
 })
 
@@ -461,8 +460,7 @@ app.post('/signaling/send-track', async (req, res) => {
 
     if (!transport) {
       err(`send-track: server-side transport ${transportId} not found`)
-      res.send({ error: `server-side transport ${transportId} not found` })
-      return
+      next(createError(400, `send-track: server-side transport ${transportId} not found` ))
     }
 
     log('send-track', JSON.stringify(req.body, null, 2))
@@ -504,7 +502,7 @@ app.post('/signaling/send-track', async (req, res) => {
 // object on the client side. always start consumers paused. client
 // will request media to resume when the connection completes
 //
-app.post('/signaling/recv-track', async (req, res) => {
+app.post('/signaling/recv-track', async (req, res, next) => {
   try {
     let { peerId, mediaPeerId, mediaTag, rtpCapabilities } = req.body
 
@@ -514,10 +512,9 @@ app.post('/signaling/recv-track', async (req, res) => {
     )
 
     if (!producer) {
-      let msg = 'server-side producer for ' +
-        `${mediaPeerId}:${mediaTag} not found`
+      let msg = `server-side producer for ${mediaPeerId}:${mediaTag} not found`
       err('recv-track: ' + msg)
-      res.send({ error: msg })
+      next(createError(400,  msg ))
       return
     }
 
@@ -527,7 +524,7 @@ app.post('/signaling/recv-track', async (req, res) => {
     })) {
       let msg = `client cannot consume ${mediaPeerId}:${mediaTag}`
       err(`recv-track: ${peerId} ${msg}`)
-      res.send({ error: msg })
+      next(createError(400, msg))
       return
     }
 
@@ -538,7 +535,7 @@ app.post('/signaling/recv-track', async (req, res) => {
     if (!transport) {
       let msg = `server-side recv transport for ${peerId} not found`
       err('recv-track: ' + msg)
-      res.send({ error: msg })
+      next(createError(400, msg ))
       return
     }
 
@@ -590,7 +587,7 @@ app.post('/signaling/recv-track', async (req, res) => {
     })
   } catch (e) {
     err('error in /signaling/recv-track', e)
-    res.send({ error: e })
+    next(createError(400,'recv-track error', e))
   }
 })
 
@@ -598,15 +595,14 @@ app.post('/signaling/recv-track', async (req, res) => {
 //
 // called to pause receiving a track for a specific client
 //
-app.post('/signaling/pause-consumer', async (req, res) => {
+app.post('/signaling/pause-consumer', async (req, res, next) => {
   try {
     let { peerId, consumerId } = req.body,
       consumer = roomState.consumers.find((c) => c.id === consumerId)
 
     if (!consumer) {
       err(`pause-consumer: server-side consumer ${consumerId} not found`)
-      res.send({ error: `server-side producer ${consumerId} not found` })
-      return
+      next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found` ))
     }
 
     log('pause-consumer', JSON.stringify(consumer.appData, null, 2))
@@ -616,7 +612,7 @@ app.post('/signaling/pause-consumer', async (req, res) => {
     res.send({ paused: true })
   } catch (e) {
     err('error in /signaling/pause-consumer', e)
-    res.send({ error: e })
+    next(createError(400, 'consumer.pause error', e))
   }
 })
 
@@ -624,15 +620,14 @@ app.post('/signaling/pause-consumer', async (req, res) => {
 //
 // called to resume receiving a track for a specific client
 //
-app.post('/signaling/resume-consumer', async (req, res) => {
+app.post('/signaling/resume-consumer', async (req, res, next) => {
   try {
     let { peerId, consumerId } = req.body,
       consumer = roomState.consumers.find((c) => c.id === consumerId)
 
     if (!consumer) {
       err(`pause-consumer: server-side consumer ${consumerId} not found`)
-      res.send({ error: `server-side consumer ${consumerId} not found` })
-      return
+      next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
     }
 
     log('resume-consumer', JSON.stringify(consumer.appData, null, 2))
@@ -642,7 +637,7 @@ app.post('/signaling/resume-consumer', async (req, res) => {
     res.send({ resumed: true })
   } catch (e) {
     err('error in /signaling/resume-consumer', e)
-    res.send({ error: e })
+    next(createError(400, 'consumer.resume error', e))
   }
 })
 
@@ -651,15 +646,14 @@ app.post('/signaling/resume-consumer', async (req, res) => {
 // called to stop receiving a track for a specific client. close and
 // clean up consumer object
 //
-app.post('/signaling/close-consumer', async (req, res) => {
+app.post('/signaling/close-consumer', async (req, res, next) => {
   try {
     let { peerId, consumerId } = req.body,
       consumer = roomState.consumers.find((c) => c.id === consumerId)
 
     if (!consumer) {
       err(`close-consumer: server-side consumer ${consumerId} not found`)
-      res.send({ error: `server-side consumer ${consumerId} not found` })
-      return
+      next (createError(400, `close-consumer: server-side consumer ${consumerId} not found`))
     }
 
     await closeConsumer(consumer)
@@ -667,7 +661,7 @@ app.post('/signaling/close-consumer', async (req, res) => {
     res.send({ closed: true })
   } catch (e) {
     err('error in /signaling/close-consumer', e)
-    res.send({ error: e })
+    next (createError(400, 'closeConsumer error', e))
   }
 })
 
@@ -676,15 +670,14 @@ app.post('/signaling/close-consumer', async (req, res) => {
 // called to set the largest spatial layer that a specific client
 // wants to receive
 //
-app.post('/signaling/consumer-set-layers', async (req, res) => {
+app.post('/signaling/consumer-set-layers', async (req, res, next) => {
   try {
     let { peerId, consumerId, spatialLayer } = req.body,
       consumer = roomState.consumers.find((c) => c.id === consumerId)
 
     if (!consumer) {
       err(`consumer-set-layers: server-side consumer ${consumerId} not found`)
-      res.send({ error: `server-side consumer ${consumerId} not found` })
-      return
+      next (createError(400, `consumer-set-layers: server-side consumer ${consumerId} not found`))
     }
 
     log('consumer-set-layers', spatialLayer, JSON.stringify(consumer.appData, null, 2))
@@ -694,7 +687,7 @@ app.post('/signaling/consumer-set-layers', async (req, res) => {
     res.send({ layersSet: true })
   } catch (e) {
     err('error in /signaling/consumer-set-layers', e)
-    res.send({ error: e })
+    next (createError(400, 'consumer.setPreferredLayers' ,e))
   }
 })
 
@@ -702,15 +695,14 @@ app.post('/signaling/consumer-set-layers', async (req, res) => {
 //
 // called to stop sending a track from a specific client
 //
-app.post('/signaling/pause-producer', async (req, res) => {
+app.post('/signaling/pause-producer', async (req, res, next) => {
   try {
     let { peerId, producerId } = req.body,
       producer = roomState.producers.find((p) => p.id === producerId)
 
     if (!producer) {
       err(`pause-producer: server-side producer ${producerId} not found`)
-      res.send({ error: `server-side producer ${producerId} not found` })
-      return
+      next (createError(400,`pause-producer: server-side producer ${producerId} not found`))
     }
 
     log('pause-producer', JSON.stringify(producer.appData, null, 2))
@@ -722,7 +714,7 @@ app.post('/signaling/pause-producer', async (req, res) => {
     res.send({ paused: true })
   } catch (e) {
     err('error in /signaling/pause-producer', e)
-    res.send({ error: e })
+    next (createError(400, 'producer.pause error', e))
   }
 })
 
@@ -730,15 +722,14 @@ app.post('/signaling/pause-producer', async (req, res) => {
 //
 // called to resume sending a track from a specific client
 //
-app.post('/signaling/resume-producer', async (req, res) => {
+app.post('/signaling/resume-producer', async (req, res,next) => {
   try {
     let { peerId, producerId } = req.body,
       producer = roomState.producers.find((p) => p.id === producerId)
 
     if (!producer) {
       err(`resume-producer: server-side producer ${producerId} not found`)
-      res.send({ error: `server-side producer ${producerId} not found` })
-      return
+      next (createError(400, `resume-producer: server-side producer ${producerId} not found`))
     }
 
     log('resume-producer', JSON.stringify(producer.appData, null, 2))
@@ -750,7 +741,24 @@ app.post('/signaling/resume-producer', async (req, res) => {
     res.send({ resumed: true })
   } catch (e) {
     err('error in /signaling/resume-producer', e)
-    res.send({ error: e })
+    next (createError(400, 'producer.resume error', e))
+  }
+})
+
+// Error handler
+app.use(function (err, req, res, next) {
+
+  if (req.accepts('json')) {
+    res
+      .status(err.status)
+      .json({
+        status: err.status,
+        name: err.name,
+        message: err.message })
+  } else {
+    res
+      .status(err.status)
+      .send(`${err.status}: ${err.message}\r\n`)
   }
 })
 

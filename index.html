@@ -1,74 +1,128 @@
-<html>
+<!doctype html>
+<html lang="en" dir="ltr">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" type="text/css" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"
+        integrity="sha512-HK5fgLBL+xu6dm/Ii3z4xhlSUyZgTT9tuc/hSrtw6uzJOvgRr2a9jyxxT1ely+B+xFAmJKVSTbpM/CuL7qxO8w=="
+        crossorigin="anonymous"/>
+  <link rel="stylesheet" type="text/css" href="styles.css"/>
   <title>mediasoup basic functionality sample code</title>
   <script>
-    window.localStorage.setItem('debug', '*');
+    window.localStorage.setItem('debug', '*')
   </script>
 
   <script src="client-bundle.js"></script>
 
 </head>
-<body onload="Client.main()">
-
-<div id="local-control">
-  <div id="join-control">
-    <button id="join-button" onclick="Client.joinRoom()">
-      join room
-    </button>
-    <span class="arrow"> &#x21E2; </span>
-  </div>
-
-  <div id="camera-control">
-    <button id="send-camera" onclick="Client.sendCameraStreams()">
-      send camera streams
-    </button>
-    <button id="stop-streams" onclick="Client.stopStreams()">
-      stop streams
-    </button>
-    <span id="camera-info"></span>
-    <button id="share-screen" onclick="Client.startScreenshare()">
-      share screen
-    </button>
-    <div id="outgoing-cam-streams-ctrl">
-      <div><input id="local-cam-checkbox" type="checkbox" checked
-                  onchange="Client.changeCamPaused()"></input>
-           <label id="local-cam-label">camera</label>
-        <span id="camera-producer-stats" class="track-ctrl"></span>
+<body id="top" onload="Client.main()">
+<div class="container-fluid" style="padding:10px;">
+  <div class="card">
+    <div id="local-control">
+      <div id="join-control">
+        <button id="join-button" class="btn btn-primary" onclick="Client.joinRoom()" title="Enter Room">
+          <i class="fas fa-sign-in-alt"></i>
+        </button>
+        <span class="arrow"> &#x21E2; </span>
       </div>
-      <div><input id="local-mic-checkbox" type="checkbox" checked
-                  onchange="Client.changeMicPaused()"></input>
-           <label id="local-mic-label">mic</label></div>
-      <div id="local-screen-pause-ctrl">
-           <input id="local-screen-checkbox" type="checkbox" checked
-                  onchange="Client.changeScreenPaused()"></input>
-           <label id="local-screen-label">screen</label>
-           <span id="screen-producer-stats" class="track-ctrl"></span>
-      </div>      
-      <div id="local-screen-audio-pause-ctrl">
-           <input id="local-screen-audio-checkbox" type="checkbox" checked
-                  onchange="Client.changeScreenAudioPaused()"></input>
-           <label id="local-screen-audio-label">screen audio</label>
-           <span id="screen-audio-producer-stats" class="track-ctrl"></span>
+
+      <div id="camera-control">
+        <button id="send-camera" class="btn btn-secondary" onclick="Client.sendCameraStreams()" title="Send Camera">
+          <i class="fas fa-video"></i>
+        </button>
+        <button id="stop-streams" class="btn btn-secondary" onclick="Client.stopStreams()" title="Stop Sending">
+          <i class="fas fa-video-slash"></i>
+        </button>
+        <span id="camera-info"></span>
+        <button id="share-screen" class="btn btn-secondary" onclick="Client.startScreenshare()" title="Share Screen">
+          <i class="fas fa-share-square"></i>
+        </button>
+        <div id="outgoing-cam-streams-ctrl">
+          <div><input id="local-cam-checkbox" type="checkbox" checked onchange="Client.changeCamPaused()"/>
+            <label id="local-cam-label">camera</label>
+            <span id="camera-producer-stats" class="track-ctrl"></span>
+          </div>
+          <div><input id="local-mic-checkbox" type="checkbox" checked onchange="Client.changeMicPaused()"/>
+            <label id="local-mic-label">mic</label></div>
+          <div id="local-screen-pause-ctrl">
+            <input id="local-screen-checkbox" type="checkbox" checked
+                   onchange="Client.changeScreenPaused()"/>
+            <label id="local-screen-label">screen</label>
+            <span id="screen-producer-stats" class="track-ctrl"></span>
+          </div>
+          <div id="local-screen-audio-pause-ctrl">
+            <input id="local-screen-audio-checkbox" type="checkbox" checked
+                   onchange="Client.changeScreenAudioPaused()"/>
+            <label id="local-screen-audio-label">screen audio</label>
+            <span id="screen-audio-producer-stats" class="track-ctrl"></span>
+          </div>
+        </div>
       </div>
+
+      <button id="leave-room" class="btn btn-secondary" onclick="Client.leaveRoom()" title="Leave Room">
+        <i class="fas fa-sign-in-alt fa-flip-horizontal"></i>
+
+      </button>
+
+      <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#qrcodemodal"
+              title="Show QR Code">
+        <i class="fas fa-qrcode"></i>
+      </button>
+
+
     </div>
   </div>
 
-  <button id="leave-room" onclick="Client.leaveRoom()">
-    leave room
-  </button>
+  <div id="available-tracks">
+  </div>
 
+  <div id="card">
+    <div id="remote-video">
+    </div>
+
+
+    <div id="remote-audio">
+    </div>
+  </div>
+  <!-- Modal -->
+  <div class="modal fade" id="qrcodemodal" tabindex="-1" role="dialog" aria-labelledby="qrcode" aria-hidden="true">
+    <div class="modal-dialog" role="document" style="width: 185px; height: 185px;">
+      <div class="modal-content">
+        <div class="modal-body container-fluid">
+          <div class="row">
+            <div id="qrcode" class="col-md-4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div id="available-tracks">
-</div>
-
-<div id="remote-video">
-</div>
-
-<div id="remote-audio">
-</div>
+<script src="https://code.jquery.com/jquery-3.5.0.slim.min.js"
+        integrity="sha256-MlusDLJIP1GRgLrOflUQtshyP0TwT/RHXsI1wWGnQhs="
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/js/all.min.js"
+        integrity="sha512-UwcC/iaz5ziHX7V6LjSKaXgCuRRqbTp1QHpbOJ4l1nw2/boCfZ2KlFIqBUA/uRVF0onbREnY9do8rM/uT/ilqw=="
+        crossorigin="anonymous"></script>
+<script src="qrcode.js"></script>
+<script type="text/javascript">
+  const qrcode = new QRCode(document.getElementById('qrcode'), {
+    text: document.URL,
+    width: 150,
+    height: 150,
+    colorDark: 'black',
+    colorLight: 'white',
+    correctLevel: QRCode.CorrectLevel.L
+  })
+</script>
 
 </body>
 </html>
