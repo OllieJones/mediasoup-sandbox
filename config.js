@@ -6,6 +6,9 @@ const config = {
   httpPort: 3000,
   httpPeerStale: 15000,
 
+  transportTrace: [/*'probation', 'bwe'*/],
+  producerConsumerTrace: [/*'rtp', 'keyframe', */ 'nack', 'fir', 'pli'],
+
   mediasoup: {
     worker: {
       rtcMinPort: 40000,
@@ -42,7 +45,7 @@ const config = {
             'profile-level-id': '4d0032',
             'level-asymmetry-allowed': 1,
           },
-        },
+        }, */
         {
           kind: 'video',
           mimeType: 'video/h264',
@@ -52,15 +55,15 @@ const config = {
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
           },
-        }, */
-        {
+        },
+/*        {
           kind: 'video',
           mimeType: 'video/VP8',
           clockRate: 90000,
           parameters: {
             //                'x-google-start-bitrate': 1000
           },
-        },
+        }, */
       ],
     },
 
@@ -69,7 +72,7 @@ const config = {
     // run anywhere but on localhost
     webRtcTransport: {
       listenIps: getListenIps(),
-      initialAvailableOutgoingBitrate: 800000,
+      initialAvailableOutgoingBitrate: 2_000_000,
     },
   },
 }

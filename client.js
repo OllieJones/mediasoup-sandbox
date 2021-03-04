@@ -223,8 +223,8 @@ export async function startCamera () {
   if (localCam) {
     return
   }
+  const localCamConstraints = camEncodings().userMediaConstraints
   try {
-    const localCamConstraints = camEncodings().userMediaConstraints
     localCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
     const settings = localCam.getVideoTracks()[0].getSettings()
     log('demo-app', 'start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
@@ -273,14 +273,18 @@ export async function cycleCamera () {
       track.stop()
     }
   }
-  const newCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
-  const newVideoTrack = newCam.getVideoTracks()[0]
-  const settings = newVideoTrack.getSettings()
-  log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
-  // replace the tracks we are sending
-  await camVideoProducer.replaceTrack({ track: newVideoTrack })
-  //await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] });
-  localCam = newCam
+  try {
+    const newCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
+    const newVideoTrack = newCam.getVideoTracks()[0]
+    const settings = newVideoTrack.getSettings()
+    log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
+    // replace the tracks we are sending
+    await camVideoProducer.replaceTrack({ track: newVideoTrack })
+    await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] });
+    localCam = newCam
+  } catch (e) {
+    err('demo-app', 'start camera', e)
+  }
   // update the user interface
   await showCameraInfo()
 }
@@ -1051,12 +1055,16 @@ function camEncodings () {
 //
 // encodings for outgoing video
 
-  const userMediaConstraints = {
+  const userMediaConstraintsFoo = {
     video: {
       width: { min: 176, ideal: 704, max: 704 },
       height: { min: 144, ideal: 576, max: 576 },
       frameRate: { min: 10, ideal: 15, max: 24 },
     },
+    audio: true
+  }
+  const userMediaConstraints = {
+    video: true,
     audio: true
   }
 
