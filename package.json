@@ -1,7 +1,7 @@
 {
   "name": "mediasoup-single-page-sample",
-  "version": "0.1.0",
-  "description": "Mediasoup Sample Code",
+  "version": "0.2.1",
+  "description": "Mediasoup Sample Code for Glance",
   "main": "server.js",
   "scripts": {
     "build": "npx rollup -c",

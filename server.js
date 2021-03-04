@@ -330,6 +330,7 @@ async function closeProducer (producer) {
 }
 
 async function closeConsumer (consumer) {
+  if (!consumer) return
   log('closing consumer', consumer.id, consumer.appData)
   await consumer.close()
 
@@ -359,7 +360,7 @@ app.post('/signaling/create-transport', async (req, res, next) => {
     const iceServers = await getIceServers()
     let { id, iceParameters, iceCandidates, dtlsParameters } = transport
     const transportOptions = { id, iceParameters, iceCandidates, dtlsParameters, iceServers: [iceServers] }
-    log('transportOptions', peerId /*, JSON.stringify(transportOptions, null, 2)*/)
+    log('transportOptions', peerId )
     return res.send({ transportOptions })
   } catch (e) {
     err('error in /signaling/create-transport', e)
@@ -384,7 +385,7 @@ async function createWebRtcTransport ({ peerId, direction }) {
 
   await transport.enableTraceEvent(config.transportTrace)
   transport.on('trace', event => {
-    log('transport trace', eventTypes.get(event.type), event.direction, JSON.stringify(event.info))
+    log('transport trace',  event.direction, eventTypes.get(event.type), event.info)
   })
 
   return transport
@@ -482,7 +483,7 @@ app.post('/signaling/send-track', async (req, res, next) => {
       return next(createError(400, `send-track: server-side transport ${transportId} not found`))
     }
 
-    log('send-track' ,req.body.kind, req.body,peerId /*, JSON.stringify(req.body, null, 2)*/)
+    log('send-track' ,req.body.kind, req.body.peerId)
     const producer = await transport.produce({
       kind,
       rtpParameters,
@@ -492,7 +493,7 @@ app.post('/signaling/send-track', async (req, res, next) => {
 
     await producer.enableTraceEvent(config.producerConsumerTrace)
     producer.on('trace', event => {
-      log('producer trace', eventTypes.get(event.type), event.direction, JSON.stringify(event.info))
+      log('producer trace', event.direction, eventTypes.get(event.type), event.info)
     })
 
     // if our associated transport closes, close ourself, too
@@ -570,7 +571,7 @@ app.post('/signaling/recv-track', async (req, res, next) => {
     /* fir: full intra request    pli: picture loss indicator */
     await consumer.enableTraceEvent(config.producerConsumerTrace)
     consumer.on('trace', event => {
-      log('consumer trace', eventTypes.get(event.type), event.direction, JSON.stringify(event.info))
+      log('consumer trace', event.direction, eventTypes.get(event.type), event.info)
     })
 
     // need both 'transportclose' and 'producerclose' event handlers,
