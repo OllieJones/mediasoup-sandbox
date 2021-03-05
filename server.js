@@ -695,7 +695,7 @@ app.post('/signaling/close-consumer', async (req, res, next) => {
 
     await closeConsumer(consumer)
 
-    res.send({ closed: true })
+    return res.send({ closed: true })
   } catch (e) {
     err('error in /signaling/close-consumer', e)
     next(createError(400, 'closeConsumer error', e))

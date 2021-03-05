@@ -56,7 +56,7 @@ const config = {
             'level-asymmetry-allowed': 1,
           },
         },
-/*        {
+       /* {
           kind: 'video',
           mimeType: 'video/VP8',
           clockRate: 90000,

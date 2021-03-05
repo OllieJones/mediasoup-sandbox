@@ -229,7 +229,7 @@ export async function startCamera () {
     const settings = localCam.getVideoTracks()[0].getSettings()
     log('demo-app', 'start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
   } catch (e) {
-    err('demo-app', 'start camera', e)
+    err('demo-app', 'start camera', localCamConstraints, e)
   }
 }
 
@@ -268,11 +268,6 @@ export async function cycleCamera () {
   if (!localCamConstraints.video) localCamConstraints.video = {}
   if (typeof localCamConstraints.video === 'boolean') localCamConstraints.video = {}
   localCamConstraints.video.deviceId = { exact: vidMedia[idx].deviceId }
-  if (localCam) {
-    for (const track of localCam.getTracks()) {
-      track.stop()
-    }
-  }
   try {
     const newCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
     const newVideoTrack = newCam.getVideoTracks()[0]
@@ -280,10 +275,10 @@ export async function cycleCamera () {
     log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
     // replace the tracks we are sending
     await camVideoProducer.replaceTrack({ track: newVideoTrack })
-    await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] });
+    await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] })
     localCam = newCam
   } catch (e) {
-    err('demo-app', 'start camera', e)
+    err('demo-app', 'start camera', localCamConstraints, e)
   }
   // update the user interface
   await showCameraInfo()
@@ -627,7 +622,7 @@ async function pollAndUpdate () {
   let thisPeersList = sortPeers(peers),
     lastPeersList = sortPeers(lastPollSyncData)
   if (!deepEqual(thisPeersList, lastPeersList)) {
-    updatePeersDisplay(peers, thisPeersList)
+    await updatePeersDisplay(peers, thisPeersList)
   }
 
   // if a peer has gone away, we need to close all consumers we have
@@ -814,7 +809,7 @@ function makeTrackControlEl (peerName, mediaTag, mediaInfo) {
       } else {
         await pauseConsumer(consumer)
       }
-      updatePeersDisplay()
+      await updatePeersDisplay()
     }
     label.id = `consumer-stats-${consumer.id}`
     if (consumer.paused) {
@@ -832,11 +827,16 @@ function makeTrackControlEl (peerName, mediaTag, mediaInfo) {
     div.appendChild(pause)
 
     if (consumer.kind === 'video') {
-      let remoteProducerInfo = document.createElement('span')
+      const remoteProducerInfo = document.createElement('span')
       remoteProducerInfo.classList.add('nowrap')
       remoteProducerInfo.classList.add('track-ctrl')
       remoteProducerInfo.id = `track-ctrl-${consumer.producerId}`
       div.appendChild(remoteProducerInfo)
+      const videoInfo = document.createElement('span')
+      videoInfo.classList.add('nowrap')
+      videoInfo.classList.add('track-ctrl')
+      videoInfo.id = `video-info-${consumer.producerId}`
+      div.appendChild(videoInfo)
     }
   }
 
@@ -851,10 +851,13 @@ function addVideoAudio (consumer) {
   // set some attributes on our audio and video elements to make
   // mobile Safari happy. note that for audio to play you need to be
   // capturing from the mic/camera
-  if (consumer.kind === 'video') {
-    el.setAttribute('playsinline', true)
-  } else {
-    el.setAttribute('playsinline', true)
+  el.id = `track-${consumer.kind}-${consumer.producerId}`
+  el.dataset.peerId = consumer.appData.peerId
+  el.dataset.consumerId  = consumer.id
+  el.dataset.kind = consumer.kind
+  el.setAttribute('playsinline', true)
+  if (consumer.kind === 'audio') {
+    /* defer play on video, but not audio */
     el.setAttribute('autoplay', true)
   }
   $(`#remote-${consumer.kind}`).appendChild(el)
@@ -1001,6 +1004,12 @@ function updateConsumersStatsDisplay () {
               })
             }
           })
+          /* video size, etc */
+          const vidEl = $(`#track-video-${consumer.producerId}`)
+          const vidInfoEl = $(`#video-info-${consumer.producerId}`)
+          if (vidEl && vidInfoEl) {
+            vidInfoEl.innerText  = `${vidEl.videoWidth}x${vidEl.videoHeight}`
+          }
         }
       }
     }
@@ -1064,7 +1073,11 @@ function camEncodings () {
     audio: true
   }
   const userMediaConstraints = {
-    video: true,
+    video: {
+      width: { ideal: 704 },
+      height: { ideal: 576 },
+      frameRate: { min: 10, ideal: 15, max: 15 },
+    },
     audio: true
   }
 
@@ -1075,7 +1088,8 @@ function camEncodings () {
   //
   const encodings =
     [
-      { maxBitrate: 256000, scaleResolutionDownBy: 2 },
+      { maxBitrate: 128000, scaleResolutionDownBy: 4 },
+      { maxBitrate: 384000, scaleResolutionDownBy: 2 },
       { maxBitrate: 512000, scaleResolutionDownBy: 1 },
     ]
   return { userMediaConstraints, encodings }
