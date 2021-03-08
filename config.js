@@ -36,7 +36,8 @@ const config = {
           clockRate: 48000,
           channels: 2,
         },
-/*        {
+          /* some browsers can only handle the constrained baseline profile.
+        {
           kind: 'video',
           mimeType: 'video/h264',
           clockRate: 90000,

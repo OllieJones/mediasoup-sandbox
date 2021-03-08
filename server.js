@@ -279,7 +279,7 @@ app.post('/signaling/leave', async (req, res, next) => {
     res.send({ left: true })
   } catch (e) {
     err('error in /signaling/leave', e)
-    next(createError(400, 'closePeer error', e))
+    return (createError(400, 'closePeer error', e))
   }
 })
 
@@ -403,8 +403,7 @@ app.post('/signaling/connect-transport', async (req, res, next) => {
 
     if (!transport) {
       err(`connect-transport: server-side transport ${transportId} not found`)
-      next(createError(400, `server-side transport ${transportId} not found`))
-      return
+      return next(createError(400, `server-side transport ${transportId} not found`))
     }
 
     log('connect-transport', peerId, transport.appData)
@@ -413,7 +412,7 @@ app.post('/signaling/connect-transport', async (req, res, next) => {
     res.send({ connected: true })
   } catch (e) {
     err('error in /signaling/connect-transport', e)
-    next(createError(400, 'transport.connect error', e))
+    return next(createError(400, 'transport.connect error', e))
   }
 })
 
@@ -429,7 +428,7 @@ app.post('/signaling/close-transport', async (req, res) => {
 
     if (!transport) {
       err(`close-transport: server-side transport ${transportId} not found`)
-      next(createError(400, `server-side transport ${transportId} not found`))
+      return next(createError(400, `server-side transport ${transportId} not found`))
     }
 
     log('close-transport', peerId, transport.appData)
@@ -438,7 +437,7 @@ app.post('/signaling/close-transport', async (req, res) => {
     res.send({ closed: true })
   } catch (e) {
     err('error in /signaling/close-transport', e)
-    next(createError(400, 'closeTransport error', e))
+    return next(createError(400, 'closeTransport error', e))
   }
 })
 
@@ -453,7 +452,7 @@ app.post('/signaling/close-producer', async (req, res) => {
 
     if (!producer) {
       err(`close-producer: server-side producer ${producerId} not found`)
-      next(createError(400, `close-producer: server-side producer ${producerId} not found`))
+      return next(createError(400, `close-producer: server-side producer ${producerId} not found`))
     }
 
     log('close-producer', peerId, producer.appData)
@@ -462,7 +461,7 @@ app.post('/signaling/close-producer', async (req, res) => {
     res.send({ closed: true })
   } catch (e) {
     err('close-producer', e)
-    next(createError(400, 'closeProducer error', e))
+    return next(createError(400, 'closeProducer error', e))
   }
 })
 
@@ -624,7 +623,7 @@ app.post('/signaling/recv-track', async (req, res, next) => {
     })
   } catch (e) {
     err('error in /signaling/recv-track', e)
-    next(createError(400, 'recv-track error', e))
+    return next(createError(400, 'recv-track error', e))
   }
 })
 
@@ -639,7 +638,7 @@ app.post('/signaling/pause-consumer', async (req, res, next) => {
 
     if (!consumer) {
       err(`pause-consumer: server-side consumer ${consumerId} not found`)
-      next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
+      return next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
     }
 
     log('pause-consumer', consumer.appData)
@@ -649,7 +648,7 @@ app.post('/signaling/pause-consumer', async (req, res, next) => {
     res.send({ paused: true })
   } catch (e) {
     err('error in /signaling/pause-consumer', e)
-    next(createError(400, 'consumer.pause error', e))
+    return next(createError(400, 'consumer.pause error', e))
   }
 })
 
@@ -664,7 +663,7 @@ app.post('/signaling/resume-consumer', async (req, res, next) => {
 
     if (!consumer) {
       err(`pause-consumer: server-side consumer ${consumerId} not found`)
-      next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
+      return next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
     }
 
     log('resume-consumer', consumer.appData)
@@ -674,7 +673,7 @@ app.post('/signaling/resume-consumer', async (req, res, next) => {
     res.send({ resumed: true })
   } catch (e) {
     err('error in /signaling/resume-consumer', e)
-    next(createError(400, 'consumer.resume error', e))
+    return next(createError(400, 'consumer.resume error', e))
   }
 })
 
@@ -690,7 +689,7 @@ app.post('/signaling/close-consumer', async (req, res, next) => {
 
     if (!consumer) {
       err(`close-consumer: server-side consumer ${consumerId} not found`)
-      next(createError(400, `close-consumer: server-side consumer ${consumerId} not found`))
+      return next(createError(400, `close-consumer: server-side consumer ${consumerId} not found`))
     }
 
     await closeConsumer(consumer)
@@ -698,7 +697,7 @@ app.post('/signaling/close-consumer', async (req, res, next) => {
     return res.send({ closed: true })
   } catch (e) {
     err('error in /signaling/close-consumer', e)
-    next(createError(400, 'closeConsumer error', e))
+    return next(createError(400, 'closeConsumer error', e))
   }
 })
 
@@ -714,7 +713,7 @@ app.post('/signaling/consumer-set-layers', async (req, res, next) => {
 
     if (!consumer) {
       err(`consumer-set-layers: server-side consumer ${consumerId} not found`)
-      next(createError(400, `consumer-set-layers: server-side consumer ${consumerId} not found`))
+      return next(createError(400, `consumer-set-layers: server-side consumer ${consumerId} not found`))
     }
 
     log('consumer-set-layers', spatialLayer, consumer.appData)
@@ -724,7 +723,7 @@ app.post('/signaling/consumer-set-layers', async (req, res, next) => {
     res.send({ layersSet: true })
   } catch (e) {
     err('error in /signaling/consumer-set-layers', e)
-    next(createError(400, 'consumer.setPreferredLayers', e))
+    return next(createError(400, 'consumer.setPreferredLayers', e))
   }
 })
 
@@ -739,7 +738,7 @@ app.post('/signaling/pause-producer', async (req, res, next) => {
 
     if (!producer) {
       err(`pause-producer: server-side producer ${producerId} not found`)
-      next(createError(400, `pause-producer: server-side producer ${producerId} not found`))
+      return next(createError(400, `pause-producer: server-side producer ${producerId} not found`))
     }
 
     log('pause-producer', producer.appData)
@@ -751,7 +750,7 @@ app.post('/signaling/pause-producer', async (req, res, next) => {
     res.send({ paused: true })
   } catch (e) {
     err('error in /signaling/pause-producer', e)
-    next(createError(400, 'producer.pause error', e))
+    return next(createError(400, 'producer.pause error', e))
   }
 })
 
@@ -766,7 +765,7 @@ app.post('/signaling/resume-producer', async (req, res, next) => {
 
     if (!producer) {
       err(`resume-producer: server-side producer ${producerId} not found`)
-      next(createError(400, `resume-producer: server-side producer ${producerId} not found`))
+      return next(createError(400, `resume-producer: server-side producer ${producerId} not found`))
     }
 
     log('resume-producer', producer.appData)
@@ -778,7 +777,7 @@ app.post('/signaling/resume-producer', async (req, res, next) => {
     res.send({ resumed: true })
   } catch (e) {
     err('error in /signaling/resume-producer', e)
-    next(createError(400, 'producer.resume error', e))
+    return next(createError(400, 'producer.resume error', e))
   }
 })
 
