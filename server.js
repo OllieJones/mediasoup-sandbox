@@ -164,12 +164,34 @@ async function main () {
   // periodically update video stats we're sending to peers
   setInterval(updatePeerStats, 3000)
 
+  let previousWorkerResource
+  let previousTimestamp = Date.now()
   // periodically monitor machine usage
   setInterval((worker) => {
     worker.getResourceUsage()
       .then(workerResource => {
+        const now = Date.now()
         const machine = { freemem: os.freemem(), totalmem: os.totalmem(), load: os.loadavg()[0] }
-        console.log(machine, workerResource)
+        const maxRss = workerResource.ru_maxrss * 1024
+        if (previousWorkerResource) {
+          const diffs = {}
+          for (const[key, val] of Object.entries(previousWorkerResource)) {
+            if (!previousWorkerResource.hasOwnProperty(key)) continue
+            if (!workerResource.hasOwnProperty(key)) continue
+            diffs[key] = workerResource[key] - val
+          }
+          const maxRss = workerResource.ru_maxrss * 1024
+          const diffRss = diffs.ru_maxrss * 1024
+          const freeMemFrac = machine.freemem / machine.totalmem
+          const timeFrac = (workerResource.ru_stime + workerResource.ru_utime) /
+            (now - previousTimestamp)
+          const load = machine.load.toFixed(2)
+          const freeMem = (freeMemFrac*100).toFixed(2)
+          const freeCpu = (100*(1-timeFrac)).toFixed(2)
+          console.log (`loadAvg:${load} freeMem:${freeMem} freeCpu:${freeCpu}`)
+        }
+        previousTimestamp = now
+        previousWorkerResource = workerResource
       })
   }, 10000, worker)
 }
