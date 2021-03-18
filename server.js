@@ -188,7 +188,9 @@ async function main () {
           const load = machine.load.toFixed(2)
           const freeMem = (freeMemFrac*100).toFixed(2)
           const freeCpu = (100*(1-timeFrac)).toFixed(2)
-          console.log (`loadAvg:${load} freeMem:${freeMem} freeCpu:${freeCpu}`)
+          if (peerCount() > 0) {
+            console.log(`loadAvg:${load} freeMem:${freeMem} freeCpu:${freeCpu}`)
+          }
         }
         previousTimestamp = now
         previousWorkerResource = workerResource
@@ -853,6 +855,10 @@ app.use(function (err, req, res, next) {
 //
 // stats
 //
+
+function peerCount () {
+  return roomState.producers.length + roomState.consumers.length
+}
 
 async function updatePeerStats () {
   for (let producer of roomState.producers) {
