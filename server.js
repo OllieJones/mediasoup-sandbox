@@ -188,8 +188,8 @@ async function main () {
           const timeFrac = (diffs.ru_stime + diffs.ru_utime) /
             (now - previousTimestamp)
           const usedCpu = (100*timeFrac).toFixed(1)
+          const msg = `producers:${roomState.producers.length} consumers:${roomState.consumers.length} loadAvg:${load} freeMem:${freeMem}% usedCpu:${usedCpu}%`
           if (roomState.producers.length + roomState.consumers.length > 0) {
-            const msg = `producers:${roomState.producers.length} consumers:${roomState.consumers.length} loadAvg:${load} freeMem:${freeMem} usedCpu:${usedCpu}`
             console.log(msg)
           }
         }
