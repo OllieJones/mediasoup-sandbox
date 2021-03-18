@@ -183,11 +183,11 @@ async function main () {
           const maxRss = workerResource.ru_maxrss * 1024
           const diffRss = diffs.ru_maxrss * 1024
           const freeMemFrac = machine.freemem / machine.totalmem
-          const freeMem = (freeMemFrac*100).toFixed(2)
+          const freeMem = (freeMemFrac*100).toFixed(1)
           const load = machine.load.toFixed(2)
           const timeFrac = (diffs.ru_stime + diffs.ru_utime) /
             (now - previousTimestamp)
-          const usedCpu = (100*timeFrac).toFixed(2)
+          const usedCpu = (100*timeFrac).toFixed(1)
           if (roomState.producers.length + roomState.consumers.length > 0) {
             const msg = `producers:${roomState.producers.length} consumers:${roomState.consumers.length} loadAvg:${load} freeMem:${freeMem} usedCpu:${usedCpu}`
             console.log(msg)
