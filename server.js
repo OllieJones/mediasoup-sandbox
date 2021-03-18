@@ -183,13 +183,14 @@ async function main () {
           const maxRss = workerResource.ru_maxrss * 1024
           const diffRss = diffs.ru_maxrss * 1024
           const freeMemFrac = machine.freemem / machine.totalmem
-          const timeFrac = (workerResource.ru_stime + workerResource.ru_utime) /
-            (now - previousTimestamp)
-          const load = machine.load.toFixed(2)
           const freeMem = (freeMemFrac*100).toFixed(2)
-          const freeCpu = (100*(1-timeFrac)).toFixed(2)
-          if (peerCount() > 0) {
-            console.log(`loadAvg:${load} freeMem:${freeMem} freeCpu:${freeCpu}`)
+          const load = machine.load.toFixed(2)
+          const timeFrac = (diffs.ru_stime + diffs.ru_utime) /
+            (now - previousTimestamp)
+          const usedCpu = (100*timeFrac).toFixed(2)
+          if (roomState.producers.length + roomState.consumers.length > 0) {
+            const msg = `producers:${roomState.producers.length} consumers:${roomState.consumers.length} loadAvg:${load} freeMem:${freeMem} usedCpu:${usedCpu}`
+            console.log(msg)
           }
         }
         previousTimestamp = now
@@ -855,10 +856,6 @@ app.use(function (err, req, res, next) {
 //
 // stats
 //
-
-function peerCount () {
-  return roomState.producers.length + roomState.consumers.length
-}
 
 async function updatePeerStats () {
   for (let producer of roomState.producers) {
