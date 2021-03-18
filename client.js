@@ -9,6 +9,7 @@ const log = debugModule('demo-app')
 const warn = debugModule('demo-app:WARN')
 const err = debugModule('demo-app:ERROR')
 
+
 //
 // export all the references we use internally to manage call state,
 // to make it easy to tinker from the js console. for example:
@@ -36,9 +37,11 @@ export let device,
 //
 
 export async function main () {
-  log('demo-app', `starting up ... my peerId is ${myPeerId}`)
+  sig('log', {peerId:myPeerId, item: 'starting'})
+  log(myPeerId,  'starting up', 'new')
   try {
     device = new mediasoup.Device()
+    sig('log', {peerId:myPeerId, item: 'device created'})
   } catch (e) {
     if (e.name === 'UnsupportedError') {
       err('demo-app', 'browser not supported for video calls')
@@ -50,10 +53,6 @@ export async function main () {
 
   // use sendBeacon to tell the server we're disconnecting when
   // the page unloads
-  // TODO this isn't right.  Should be on visibility event according to MDN
-  // But MDN's recommendation won't work here because lots of other stuff
-  // triggers on visibility in the app structure they envision, and this
-  // client code doesn't work that way.
   window.addEventListener('unload', () => sig('leave', {}, true))
 }
 
@@ -66,7 +65,8 @@ export async function joinRoom () {
     return
   }
 
-  log('demo-app', 'join room')
+  log('join room')
+
   $('#join-control').style.display = 'none'
 
   try {
@@ -75,6 +75,8 @@ export async function joinRoom () {
     let { routerRtpCapabilities } = await sig('join-as-new-peer')
     if (!device.loaded) {
       await device.load({ routerRtpCapabilities })
+      sig('log', {peerId:myPeerId, item: 'device loaded'})
+
     }
     joined = true
     $('#leave-room').style.display = 'initial'
@@ -94,7 +96,7 @@ export async function joinRoom () {
 }
 
 export async function sendCameraStreams () {
-  log('demo-app', 'send camera streams')
+  log('send camera streams')
   $('#send-camera').style.display = 'none'
 
   // make sure we've joined the room and started our camera. these
@@ -106,6 +108,8 @@ export async function sendCameraStreams () {
   // create a transport for outgoing media, if we don't already have one
   if (!sendTransport) {
     sendTransport = await createTransport('send')
+    sig('log', {peerId:myPeerId, item: 'transport created'})
+
   }
 
   // start sending video. the transport logic will initiate a
@@ -122,6 +126,8 @@ export async function sendCameraStreams () {
       encodings: camEncodings().encodings,
       appData: { mediaTag: 'cam-video' }
     })
+    sig('log', {peerId:myPeerId, item: 'video producer created'})
+
     if (getCamPausedState()) {
       try {
         await camVideoProducer.pause()
@@ -138,6 +144,7 @@ export async function sendCameraStreams () {
       track,
       appData: { mediaTag: 'cam-audio' }
     })
+    sig('log', {peerId:myPeerId, item: 'audio producer created'})
     if (getMicPausedState()) {
       try {
         camAudioProducer.pause()
@@ -228,6 +235,8 @@ export async function startCamera () {
     localCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
     const settings = localCam.getVideoTracks()[0].getSettings()
     log('demo-app', 'start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
+    sig('log', {peerId:myPeerId, item: 'stream started', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
+
   } catch (e) {
     err('demo-app', 'start camera', localCamConstraints, e)
   }
@@ -273,6 +282,7 @@ export async function cycleCamera () {
     const newVideoTrack = newCam.getVideoTracks()[0]
     const settings = newVideoTrack.getSettings()
     log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
+    sig('log', {peerId:myPeerId, item: 'stream restarted', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
     // replace the tracks we are sending
     await camVideoProducer.replaceTrack({ track: newVideoTrack })
     await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] })
@@ -285,6 +295,7 @@ export async function cycleCamera () {
 }
 
 export async function stopStreams () {
+  sig('log', {peerId:myPeerId, item: 'stop sending streams'})
   if (!(localCam || localScreen)) {
     return
   }
@@ -322,7 +333,7 @@ export async function stopStreams () {
   $('#share-screen').style.display = 'initial'
   $('#local-screen-pause-ctrl').style.display = 'none'
   $('#local-screen-audio-pause-ctrl').style.display = 'none'
-  showCameraInfo()
+  await showCameraInfo()
 }
 
 export async function leaveRoom () {

@@ -24,6 +24,8 @@ const app = express()
 let httpsServer
 
 const log = debugModule('demo-app')
+const clientLog = debugModule('demo-app')
+const trace = debugModule('demo-app')
 const warn = debugModule('demo-app:WARN')
 const err = debugModule('demo-app:ERROR')
 
@@ -94,8 +96,20 @@ const roomState = {
 // our http server needs to send 'index.html' and 'client-bundle.js'.
 // might as well just send everything in this directory ...
 //
-
 app.use(express.static(__dirname))
+
+// logging
+if (false) {
+  const logger = require('morgan')
+  app.use(logger('tiny', {
+    skip: function (req, res, next) {
+      if (req.path === '/signaling/sync') return true
+      return false
+    }
+  }))
+}
+
+
 
 //
 // main() -- our execution entry point
@@ -181,7 +195,7 @@ async function startMediasoup () {
   })
   audioLevelObserver.on('volumes', (volumes) => {
     const { producer, volume } = volumes[0]
-    log('audio-level volumes event', producer.appData.peerId, volume)
+    log( producer.appData.peerId, 'audio-level volumes event', volume)
     roomState.activeSpeaker.producerId = producer.id
     roomState.activeSpeaker.volume = volume
     roomState.activeSpeaker.peerId = producer.appData.peerId
@@ -205,6 +219,12 @@ async function startMediasoup () {
 // signaling endpoints. (sendBeacon can't set the Content-Type header)
 //
 app.use(express.json({ type: '*/*' }))
+
+app.post('/signaling/log', async (req, res, next) =>{
+  const {peerId, item, message} = req.body
+  clientLog (peerId, item || '', message|| '', 'from client')
+  return res.status(200)
+})
 
 app.post('/signaling/get-config', async (req, res) => {
   const iceServers = await getIceServers()
@@ -250,7 +270,7 @@ app.post('/signaling/join-as-new-peer', async (req, res, next) => {
   try {
     let { peerId } = req.body,
       now = Date.now()
-    log('join-as-new-peer', peerId)
+    log(peerId, 'join-as-new-peer')
 
     roomState.peers[peerId] = {
       joinTs: now,
@@ -273,7 +293,7 @@ app.post('/signaling/join-as-new-peer', async (req, res, next) => {
 app.post('/signaling/leave', async (req, res, next) => {
   try {
     let { peerId } = req.body
-    log('leave', peerId)
+    log(peerId,'leave')
 
     await closePeer(peerId)
     res.send({ left: true })
@@ -284,7 +304,7 @@ app.post('/signaling/leave', async (req, res, next) => {
 })
 
 function closePeer (peerId) {
-  log('closing peer', peerId)
+  log(peerId, 'closing peer')
   for (let [id, transport] of Object.entries(roomState.transports)) {
     if (transport.appData.peerId === peerId) {
       closeTransport(transport)
@@ -295,7 +315,7 @@ function closePeer (peerId) {
 
 async function closeTransport (transport) {
   try {
-    log('closing transport', transport.id, transport.appData)
+    log(transport.appData.peerId, 'closing transport', transport.id)
 
     // our producer and consumer event handlers will take care of
     // calling closeProducer() and closeConsumer() on all the producers
@@ -311,7 +331,7 @@ async function closeTransport (transport) {
 }
 
 async function closeProducer (producer) {
-  log('closing producer', producer.id, producer.appData)
+  log( producer.appData.peerId, 'closing producer', producer.id)
   try {
     await producer.close()
 
@@ -331,7 +351,7 @@ async function closeProducer (producer) {
 
 async function closeConsumer (consumer) {
   if (!consumer) return
-  log('closing consumer', consumer.id, consumer.appData)
+  log(consumer.appData.peerId, 'closing consumer', consumer.id)
   await consumer.close()
 
   // remove this consumer from our roomState.consumers list
@@ -351,7 +371,7 @@ async function closeConsumer (consumer) {
 app.post('/signaling/create-transport', async (req, res, next) => {
   try {
     let { peerId, direction } = req.body
-    log('create-transport', peerId, direction)
+    log(peerId, 'create-transport', direction)
 
     let transport = await createWebRtcTransport({ peerId, direction })
 
@@ -360,7 +380,7 @@ app.post('/signaling/create-transport', async (req, res, next) => {
     const iceServers = await getIceServers()
     let { id, iceParameters, iceCandidates, dtlsParameters } = transport
     const transportOptions = { id, iceParameters, iceCandidates, dtlsParameters, iceServers: [iceServers] }
-    log('transportOptions', peerId )
+    //log(peerId, 'transportOptions')
     return res.send({ transportOptions })
   } catch (e) {
     err('error in /signaling/create-transport', e)
@@ -385,7 +405,7 @@ async function createWebRtcTransport ({ peerId, direction }) {
 
   await transport.enableTraceEvent(config.transportTrace)
   transport.on('trace', event => {
-    log('transport trace',  event.direction, eventTypes.get(event.type), event.info)
+    trace(peerId,'transport trace',  event.direction, eventTypes.get(event.type), event.info)
   })
 
   return transport
@@ -406,7 +426,7 @@ app.post('/signaling/connect-transport', async (req, res, next) => {
       return next(createError(400, `server-side transport ${transportId} not found`))
     }
 
-    log('connect-transport', peerId, transport.appData)
+    log(peerId, 'connect-transport')
 
     await transport.connect({ dtlsParameters })
     res.send({ connected: true })
@@ -431,7 +451,7 @@ app.post('/signaling/close-transport', async (req, res) => {
       return next(createError(400, `server-side transport ${transportId} not found`))
     }
 
-    log('close-transport', peerId, transport.appData)
+    log(peerId, 'close-transport')
 
     await closeTransport(transport)
     res.send({ closed: true })
@@ -455,7 +475,7 @@ app.post('/signaling/close-producer', async (req, res) => {
       return next(createError(400, `close-producer: server-side producer ${producerId} not found`))
     }
 
-    log('close-producer', peerId, producer.appData)
+    log(peerId, 'close-producer')
 
     await closeProducer(producer)
     res.send({ closed: true })
@@ -482,7 +502,7 @@ app.post('/signaling/send-track', async (req, res, next) => {
       return next(createError(400, `send-track: server-side transport ${transportId} not found`))
     }
 
-    log('send-track' ,req.body.kind, req.body.peerId)
+    log(req.body.peerId, 'send-track' ,req.body.kind )
     const producer = await transport.produce({
       kind,
       rtpParameters,
@@ -492,12 +512,13 @@ app.post('/signaling/send-track', async (req, res, next) => {
 
     await producer.enableTraceEvent(config.producerConsumerTrace)
     producer.on('trace', event => {
-      log('producer trace', event.direction, eventTypes.get(event.type), event.info)
+      trace(producer.appData.peerId, 'producer trace', event.direction, producer.appData.mediaTag,
+        eventTypes.get(event.type), event.info)
     })
 
     // if our associated transport closes, close ourself, too
     producer.on('transportclose', () => {
-      log('producer\'s transport closed', producer.id)
+      log(producer.appData.peerId, 'producer\'s transport closed', producer.id)
       closeProducer(producer)
     })
 
@@ -570,18 +591,18 @@ app.post('/signaling/recv-track', async (req, res, next) => {
     /* fir: full intra request    pli: picture loss indicator */
     await consumer.enableTraceEvent(config.producerConsumerTrace)
     consumer.on('trace', event => {
-      log('consumer trace', event.direction, eventTypes.get(event.type), event.info)
+      trace ( peerId, 'consumer trace', event.direction, mediaTag, eventTypes.get(event.type), event.info)
     })
 
     // need both 'transportclose' and 'producerclose' event handlers,
     // to make sure we close and clean up consumers in all
     // circumstances
     consumer.on('transportclose', () => {
-      log(`consumer's transport closed`, consumer.id)
+      log(consumer.appData.peerId, `consumer's transport closed`, consumer.id)
       closeConsumer(consumer)
     })
     consumer.on('producerclose', () => {
-      log(`consumer's producer closed`, consumer.id)
+      log(consumer.appData.peerId,`consumer's producer closed`, consumer.id)
       closeConsumer(consumer)
     })
 
@@ -605,7 +626,7 @@ app.post('/signaling/recv-track', async (req, res, next) => {
           return
         }
       }
-      log(`consumer layerschange ${mediaPeerId}->${peerId}`, mediaTag, layers || 'none')
+      log(consumer.appData.peerId,`consumer layerschange ${mediaPeerId}->${peerId}`, mediaTag, layers || 'none')
       if (roomState.peers[peerId] &&
         roomState.peers[peerId].consumerLayers[consumer.id]) {
         roomState.peers[peerId].consumerLayers[consumer.id]
@@ -641,7 +662,7 @@ app.post('/signaling/pause-consumer', async (req, res, next) => {
       return next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
     }
 
-    log('pause-consumer', consumer.appData)
+    log(consumer.appData.peerId, 'pause-consumer')
 
     await consumer.pause()
 
@@ -666,7 +687,7 @@ app.post('/signaling/resume-consumer', async (req, res, next) => {
       return next(createError(400, `pause-consumer: server-side consumer ${consumerId} not found`))
     }
 
-    log('resume-consumer', consumer.appData)
+    log(consumer.appData.peerId,'resume-consumer')
 
     await consumer.resume()
 
@@ -716,7 +737,7 @@ app.post('/signaling/consumer-set-layers', async (req, res, next) => {
       return next(createError(400, `consumer-set-layers: server-side consumer ${consumerId} not found`))
     }
 
-    log('consumer-set-layers', spatialLayer, consumer.appData)
+    log(consumer.appData.peerId, 'consumer-set-layers', spatialLayer)
 
     await consumer.setPreferredLayers({ spatialLayer })
 
@@ -741,7 +762,7 @@ app.post('/signaling/pause-producer', async (req, res, next) => {
       return next(createError(400, `pause-producer: server-side producer ${producerId} not found`))
     }
 
-    log('pause-producer', producer.appData)
+    log(producer.appData.peerId,'pause-producer')
 
     await producer.pause()
 
@@ -768,7 +789,7 @@ app.post('/signaling/resume-producer', async (req, res, next) => {
       return next(createError(400, `resume-producer: server-side producer ${producerId} not found`))
     }
 
-    log('resume-producer', producer.appData)
+    log(producer.appData.peerId, 'resume-producer')
 
     await producer.resume()
 
