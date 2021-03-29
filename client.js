@@ -1103,7 +1103,8 @@ function camEncodings () {
       { maxBitrate: 128000, scaleResolutionDownBy: 2 },
       { maxBitrate: 384000, scaleResolutionDownBy: 1 },
     ]
-  const isSafari = navigator.vendor.toLowerCase().indexOf('apple') >= 0
+  //const isSafari = navigator.vendor.toLowerCase().indexOf('apple') >= 0
+  const isSafari = false
   return isSafari
       ? { userMediaConstraintsSafari, encodingsSafari }
       : { userMediaConstraints, encodings }
