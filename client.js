@@ -1075,14 +1075,6 @@ function camEncodings () {
 //
 // encodings for outgoing video
 
-  const userMediaConstraintsFoo = {
-    video: {
-      width: { min: 176, ideal: 704, max: 704 },
-      height: { min: 144, ideal: 576, max: 576 },
-      frameRate: { min: 10, ideal: 15, max: 24 },
-    },
-    audio: true
-  }
   const userMediaConstraints = {
     video: {
       width: { ideal: 704 },
@@ -1092,22 +1084,33 @@ function camEncodings () {
     audio: true
   }
 
-  //const userMediaConstraints = { video: true, audio: false }
-
-  // just two resolutions, for now, as chrome 75 seems to ignore more
-  // than two encodings ???
-  //
   const encodings =
     [
       { maxBitrate: 128000, scaleResolutionDownBy: 4 },
       { maxBitrate: 384000, scaleResolutionDownBy: 2 },
       { maxBitrate: 512000, scaleResolutionDownBy: 1 },
     ]
-  return { userMediaConstraints, encodings }
+
+  const userMediaConstraintsSafari = {
+    video: {
+      width: { ideal: 352 },
+      height: { ideal: 288 },
+      frameRate: { min: 10, ideal: 15, max: 15 },
+    },
+    audio: true
+  }
+
+  const encodingsSafari =
+    [
+      { maxBitrate: 128000, scaleResolutionDownBy: 2 },
+      { maxBitrate: 384000, scaleResolutionDownBy: 1 },
+    ]
+  const isSafari = navigator.vendor.toLowerCase().indexOf('apple') >= 0
+  return isSafari
+      ? { userMediaConstraintsSafari, encodingsSafari }
+      : { userMediaConstraints, encodings }
 }
 
-// how do we limit bandwidth for screen share streams?
-//
 function screenshareEncodings () {
   null
 }
