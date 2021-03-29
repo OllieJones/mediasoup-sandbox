@@ -9,7 +9,6 @@ const log = debugModule('demo-app')
 const warn = debugModule('demo-app:WARN')
 const err = debugModule('demo-app:ERROR')
 
-
 //
 // export all the references we use internally to manage call state,
 // to make it easy to tinker from the js console. for example:
@@ -37,11 +36,11 @@ export let device,
 //
 
 export async function main () {
-  sig('log', {peerId:myPeerId, item: 'starting'})
+  await sig('log', {peerId:myPeerId, item: 'starting'})
   log(myPeerId,  'starting up', 'new')
   try {
     device = new mediasoup.Device()
-    sig('log', {peerId:myPeerId, item: 'device created'})
+    await sig('log', {peerId:myPeerId, item: 'device created'})
   } catch (e) {
     if (e.name === 'UnsupportedError') {
       err('demo-app', 'browser not supported for video calls')
@@ -53,7 +52,7 @@ export async function main () {
 
   // use sendBeacon to tell the server we're disconnecting when
   // the page unloads
-  window.addEventListener('unload', () => sig('leave', {}, true))
+  window.addEventListener('unload', () => sig('leave', {}, true).then())
 }
 
 //
@@ -65,8 +64,7 @@ export async function joinRoom () {
     return
   }
 
-  log('join room')
-
+  log('demo-app', 'join room')
   $('#join-control').style.display = 'none'
 
   try {
@@ -75,7 +73,7 @@ export async function joinRoom () {
     let { routerRtpCapabilities } = await sig('join-as-new-peer')
     if (!device.loaded) {
       await device.load({ routerRtpCapabilities })
-      sig('log', {peerId:myPeerId, item: 'device loaded'})
+      await sig('log', {peerId:myPeerId, item: 'device loaded'})
 
     }
     joined = true
@@ -96,7 +94,7 @@ export async function joinRoom () {
 }
 
 export async function sendCameraStreams () {
-  log('send camera streams')
+  log('demo-app', 'send camera streams')
   $('#send-camera').style.display = 'none'
 
   // make sure we've joined the room and started our camera. these
@@ -108,7 +106,7 @@ export async function sendCameraStreams () {
   // create a transport for outgoing media, if we don't already have one
   if (!sendTransport) {
     sendTransport = await createTransport('send')
-    sig('log', {peerId:myPeerId, item: 'transport created'})
+    await sig('log', {peerId:myPeerId, item: 'transport created'})
 
   }
 
@@ -126,7 +124,7 @@ export async function sendCameraStreams () {
       encodings: camEncodings().encodings,
       appData: { mediaTag: 'cam-video' }
     })
-    sig('log', {peerId:myPeerId, item: 'video producer created'})
+    await sig('log', {peerId:myPeerId, item: 'video producer created'})
 
     if (getCamPausedState()) {
       try {
@@ -144,7 +142,7 @@ export async function sendCameraStreams () {
       track,
       appData: { mediaTag: 'cam-audio' }
     })
-    sig('log', {peerId:myPeerId, item: 'audio producer created'})
+    await sig('log', {peerId:myPeerId, item: 'audio producer created'})
     if (getMicPausedState()) {
       try {
         camAudioProducer.pause()
@@ -235,7 +233,7 @@ export async function startCamera () {
     localCam = await navigator.mediaDevices.getUserMedia(localCamConstraints)
     const settings = localCam.getVideoTracks()[0].getSettings()
     log('demo-app', 'start camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
-    sig('log', {peerId:myPeerId, item: 'stream started', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
+    await sig('log', {peerId:myPeerId, item: 'stream started', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
 
   } catch (e) {
     err('demo-app', 'start camera', localCamConstraints, e)
@@ -282,7 +280,7 @@ export async function cycleCamera () {
     const newVideoTrack = newCam.getVideoTracks()[0]
     const settings = newVideoTrack.getSettings()
     log('demo-app', 'cycle camera', `${settings.width}x${settings.height} ${settings.frameRate}fps`)
-    sig('log', {peerId:myPeerId, item: 'stream restarted', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
+    await sig('log', {peerId:myPeerId, item: 'stream restarted', message: `${settings.width}x${settings.height} ${settings.frameRate}fps`})
     // replace the tracks we are sending
     await camVideoProducer.replaceTrack({ track: newVideoTrack })
     await camAudioProducer.replaceTrack({ track: localCam.getAudioTracks()[0] })
@@ -295,7 +293,7 @@ export async function cycleCamera () {
 }
 
 export async function stopStreams () {
-  sig('log', {peerId:myPeerId, item: 'stop sending streams'})
+  await sig('log', {peerId:myPeerId, item: 'stop sending streams'})
   if (!(localCam || localScreen)) {
     return
   }
@@ -1012,7 +1010,7 @@ function updateConsumersStatsDisplay () {
               sig('consumer-set-layers', {
                 consumerId: consumer.id,
                 spatialLayer: i
-              })
+              }).then()
             }
           })
           /* video size, etc */
@@ -1098,7 +1096,7 @@ function camEncodings () {
       frameRate: { min: 10, ideal: 15, max: 15 },
     },
     audio: true
-  }
+}
 
   const encodingsSafari =
     [
@@ -1112,7 +1110,7 @@ function camEncodings () {
 }
 
 function screenshareEncodings () {
-  null
+  return null
 }
 
 //

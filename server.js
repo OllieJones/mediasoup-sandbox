@@ -253,10 +253,13 @@ async function startMediasoup () {
 //
 app.use(express.json({ type: '*/*' }))
 
+/**
+ * incoming client logging requests
+ */
 app.post('/signaling/log', async (req, res, next) => {
   const { peerId, item, message } = req.body
   clientLog(peerId, item || '', message || '', 'from client')
-  return res.status(200)
+  return res.status(200).json({status: 200, message: 'OK'})
 })
 
 app.post('/signaling/get-config', async (req, res) => {
